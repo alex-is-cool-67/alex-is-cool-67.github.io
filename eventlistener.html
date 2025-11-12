@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+#lightning{
+width:300px;
+height:300px;
+background-image:url(lightningMcqueen.png);
+background-size: contain;
+background-repeat: no-repeat;
+position:absolute;
+
+}	
+</style>	
+
+
+
+</head>
+<body>
+<div id="lightning">
+
+<script type="text/javascript">
+lightning.style.left="0px"
+
+document.addEventListener("keypress",function(){
+	console.log("Kachow! I'm Lightning McQueen!")
+lightning.style.left=parseInt(lightning.style.left)+5+"px"
+})
+
+
+</script>
+
+
+</div>
+</body>
+</html>
