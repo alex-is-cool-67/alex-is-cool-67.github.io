@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<style type="text/css">
+		#egg{
+			width: 200px;
+		    height: 200px;
+			background-image: url(egg.png);
+			background-size:contain;
+			background-repeat: no-repeat;
+			background-position: center;
+			position:absolute;
+			top: 200px;
+	}
+</style>
+
+</head>
+<body>
+
+<div id="egg"></div>
+
+
+<script type="text/javascript">
+	let counter=0;
+egg.addEventListener("click", function(){
+	counter=counter+1
+	console.log(counter)
+	egg.style.backgroundImage="url(egg2.png)"
+})
+
+document.addEventListener("mousemove", function(event){
+	console.log(event.clientX, event.clientY)
+	egg.style.left=event.clientX-100+"px"
+	egg.style.top=event.clientY-100+"px"
+
+})
+
+
+
+
+
+
+
+
+
+
+</script>
+
+
+
+
+
+
+</body>
+</html>

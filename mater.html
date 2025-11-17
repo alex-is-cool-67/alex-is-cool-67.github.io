@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<style type="text/css">
+		#mater{
+			width: 200px;
+		    height: 200px;
+			background-image: url(mater.png);
+			background-size:contain;
+			background-repeat: no-repeat;
+			background-position: center;
+			position:absolute;
+			top: 200px;
+	}
+</style>
+
+</head>
+<body>
+
+<div id="mater"></div>
+
+
+<script type="text/javascript">
+	
+
+document.addEventListener("mousemove", function(event){
+	console.log(event.clientX, event.clientY)
+	mater.style.left=event.clientX-100+"px"
+	mater.style.top=event.clientY-100+"px"
+
+})
+
+</script>
+</body>
+</html>
