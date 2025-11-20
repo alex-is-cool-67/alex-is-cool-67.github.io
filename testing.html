@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Click the Fastest!</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        #gameArea, #startArea, #result {
+            border: 2px solid #333;
+            padding: 20px;
+            width: 300px;
+            margin: 10px auto;
+            cursor: pointer;
+        }
+
+        #gameArea {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="startArea">🎮 Click here to START!</div>
+    <div id="gameArea">🖱️ CLICK NOW!</div>
+    <div id="result"></div>
+
+    <script>
+        var waitTime;
+        var startTime;
+        var timeoutID;
+
+        function startGame() {
+            document.getElementById("startArea").style.display = "none";
+            document.getElementById("result").innerHTML = "";
+            
+            waitTime = Math.floor(Math.random() * 3000) + 1000;
+            timeoutID = setTimeout(showClickArea, waitTime);
+        }
+
+        function showClickArea() {
+            startTime = Date.now();
+            document.getElementById("gameArea").style.display = "block";
+        }
+
+        function playerClicked() {
+            if (document.getElementById("gameArea").style.display === "block") {
+                var reactionTime = Date.now() - startTime;
+                document.getElementById("result").innerHTML = "⚡ Reaction Time: " + reactionTime + " ms";
+            } else {
+                document.getElementById("result").innerHTML = "⛔ Too early! Try again.";
+            }
+            resetGame();
+        }
+
+        function resetGame() {
+            document.getElementById("gameArea").style.display = "none";
+            document.getElementById("startArea").style.display = "block";
+            clearTimeout(timeoutID);
+        }
+
+        // 🎯 Event Listeners
+        document.getElementById("startArea").onclick = startGame;
+        document.getElementById("gameArea").onclick = playerClicked;
+    </script>
+</body>
+</html>
