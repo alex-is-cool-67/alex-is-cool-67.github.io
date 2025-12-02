@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clash Clicker Expanded</title>
+<style>
+body{margin:0;font-family:sans-serif;background:#0f1724;color:white;display:flex;justify-content:center;padding:20px;}
+.wrap{width:100%;max-width:1200px;display:grid;grid-template-columns:420px 1fr;gap:20px;}
+.left{background:#0b1220;padding:20px;border-radius:12px;}
+.right{background:#102033;padding:18px;border-radius:12px;min-height:500px;}
+h1,h2{margin:0 0 10px;}
+.sub{color:#9aa4b2;font-size:13px;margin-bottom:10px;}
+#crownsDisplay{font-size:28px;font-weight:700;margin:12px 0;color:#f59e0b;}
+.chest{width:300px;height:200px;margin:auto;border-radius:16px;display:flex;align-items:center;justify-content:center;background:#2b1f05;cursor:pointer;position:relative;overflow:hidden;border:4px solid rgba(255,255,255,0.03);}
+.chest:active{transform:translateY(2px) scale(.997);}
+.chest .emoji{font-size:72px;}
+.clickLabel{position:absolute;bottom:8px;width:100%;text-align:center;color:#9aa4b2;font-size:13px;}
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.stat{background:rgba(255,255,255,0.03);padding:8px 12px;border-radius:10px;font-size:13px;color:#9aa4b2;}
+.card{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.02);padding:10px;border-radius:10px;margin-bottom:10px;border:1px solid rgba(255,255,255,0.02);}
+.card .icon{width:50px;height:50px;border-radius:8px;background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(0,0,0,0.25));display:flex;align-items:center;justify-content:center;font-size:26px;}
+.card .meta{flex:1;text-align:left;}
+.card .meta .name{font-weight:700;}
+.card .meta .desc{font-size:12px;color:#9aa4b2;}
+.card .controls{text-align:right;}
+.buyBtn{background:linear-gradient(180deg,#0ea5a2,#067d7a);border:none;padding:6px 10px;border-radius:6px;color:#041014;font-weight:700;cursor:pointer;font-size:13px;}
+.buyBtn:disabled{opacity:.45;cursor:not-allowed;}
+.tabs{display:flex;gap:8px;margin:12px 0;}
+.tab{flex:1;text-align:center;padding:6px 0;background:rgba(255,255,255,0.03);border-radius:8px;cursor:pointer;}
+.tab.active{background:#f59e0b;color:#041014;font-weight:700;}
+.tabContent{display:none;}
+.tabContent.active{display:block;}
+.log{height:220px;overflow:auto;background:rgba(255,255,255,0.01);border-radius:8px;padding:12px;color:#9aa4b2;font-size:12px;border:1px solid rgba(255,255,255,0.02);}
+.float{position:absolute;pointer-events:none;font-weight:700;transform:translateY(0);opacity:1;animation:floatUp 900ms ease-out forwards;color:gold;}
+@keyframes floatUp{to{transform:translateY(-80px) scale(.9);opacity:0;}}
+.controlsRow{display:flex;gap:8px;align-items:center;justify-content:center;margin-top:12px;}
+.btn{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:6px 10px;border-radius:6px;color:#9aa4b2;cursor:pointer;font-size:12px;}
+.btn.danger{border-color:rgba(255,60,60,0.15);color:#ffb4b4;}
+.row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px dashed rgba(255,255,255,0.02);}
+.bigStat{font-size:16px;font-weight:700;color:#f59e0b;}
+.muted{color:#9aa4b2;font-size:12px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="left">
+<h1>Clash Clicker Expanded</h1>
+<div class="sub">Click the chest to earn <strong>Crowns</strong>! Buy cards, upgrade them, earn CPS, unlock achievements!</div>
+<div id="crownsDisplay">Crowns: <span id="crowns">0</span></div>
+<div class="chest" id="chest"><div class="emoji">👑</div><div class="clickLabel">Click the Royal Chest</div></div>
+<div class="stats">
+<div class="stat">CPS: <strong id="cps">0</strong></div>
+<div class="stat">Total Crowns: <span id="total">0</span></div>
+<div class="stat">Clicks: <span id="clicks">0</span></div>
+</div>
+<div class="controlsRow">
+<button class="btn" id="saveBtn">Save</button>
+<button class="btn" id="exportBtn">Export</button>
+<button class="btn danger" id="resetBtn">Reset</button>
+</div>
+<div class="tabs">
+<div class="tab active" data-tab="shop">Shop</div>
+<div class="tab" data-tab="upgrades">Upgrades</div>
+<div class="tab" data-tab="achievements">Achievements</div>
+</div>
+<div class="tabContent active" id="shop"><div id="cardsContainer"></div></div>
+<div class="tabContent" id="upgrades"><div id="upgradesContainer"></div></div>
+<div class="tabContent" id="achievements"><div id="achievementsContainer"></div></div>
+</div>
+<div class="right">
+<h2>Production Log</h2><div class="log" id="log"></div>
+<h2>Statistics</h2>
+<div class="row"><div class="muted">Best CPS</div><div class="bigStat" id="bestCps">0</div></div>
+<div class="row"><div class="muted">Crowns per Click</div><div class="bigStat" id="perClick">1</div></div>
+<div class="row"><div class="muted">Prestige Points</div><div class="bigStat" id="prestige">0</div></div>
+<div class="row"><div class="muted">Last Save</div><div class="muted" id="lastSave">Never</div></div>
+</div>
+</div>
+<script>
+/* ===== GAME DATA ===== */
+const baseClick=1;
+const cardsData=[
+{id:'goblin',name:'Goblin Gang',emoji:'🗡️',baseCost:15,baseCps:0.1},
+{id:'archer',name:'Archers',emoji:'🏹',baseCost:80,baseCps:0.6},
+{id:'knight',name:'Knight',emoji:'🛡️',baseCost:400,baseCps:3},
+{id:'giant',name:'Giant',emoji:'👊',baseCost:1800,baseCps:12},
+{id:'baby',name:'Baby Dragon',emoji:'🐉',baseCost:8000,baseCps:55},
+{id:'pekka',name:'PEKKA',emoji:'⚔️',baseCost:45000,baseCps:320}
+];
+let upgradesData=[
+{id:'clickPower',name:'Tap Training',desc:'Increase crowns per click by 1',cost:100,level:0,max:50},
+{id:'doubleCPS',name:'Elixir Boost',desc:'Double total CPS for 30s',cost:500,level:0,max:10}
+];
+let state={crowns:0,totalCrowns:0,clicks:0,owned:{},cps:0,bestCps:0,perClick:baseClick,lastSave:null,prestige:0};
+cardsData.forEach(c=>state.owned[c.id]=0);
+/* ===== HELPERS ===== */
+function format(n){if(n>=1e12)return(n/1e12).toFixed(2)+'T';if(n>=1e9)return(n/1e9).toFixed(2)+'B';if(n>=1e6)return(n/1e6).toFixed(2)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'k';return Math.floor(n);}
+function calcCost(base,owned){return Math.ceil(base*Math.pow(1.15,owned));}
+function calcTotalCps(){let sum=0;cardsData.forEach(c=>sum+=c.baseCps*state.owned[c.id]);state.cps=Number(sum.toFixed(3));if(state.cps>state.bestCps)state.bestCps=state.cps;document.getElementById('cps').innerText=state.cps;document.getElementById('bestCps').innerText=state.bestCps;}
+/* ===== UI BUILD ===== */
+const cardsContainer=document.getElementById('cardsContainer');
+cardsData.forEach(card=>{const el=document.createElement('div');el.className='card';el.id='card-'+card.id;el.innerHTML=`<div class="icon">${card.emoji}</div><div class="meta"><div class="name">${card.name} x<span id="owned-${card.id}">0</span></div><div class="desc small">+${card.baseCps}/s</div><div class="small">Cost: <span id="cost-${card.id}">${calcCost(card.baseCost,0)}</span></div></div><div class="controls"><button class="buyBtn" id="buy-${card.id}">Buy</button></div>`;cardsContainer.appendChild(el);document.getElementById('buy-'+card.id).addEventListener('click',()=>buyCard(card.id));});
+const upgradesContainer=document.getElementById('upgrades');upgradesData.forEach(u=>{const el=document.createElement('div');el.className='card';el.innerHTML=`<div class="meta"><div class="name">${u.name} (Level <span id="up-${u.id}">0</span>)</div><div class="desc small">${u.desc}</div><div class="small">Cost: <span id="upCost-${u.id}">${u.cost}</span></div></div><div class="controls"><button class="buyBtn" id="buyUp-${u.id}">Buy</button></div>`;upgradesContainer.appendChild(el);document.getElementById('buyUp-'+u.id).addEventListener('click',()=>buyUpgrade(u.id));});
+const chestEl=document.getElementById('chest');const crownsSpan=document.getElementById('crowns');const totalSpan=document.getElementById('total');const clicksSpan=document.getElementById('clicks');const perClickSpan=document.getElementById('perClick');const logBox=document.getElementById('log');
+/* ===== CORE ACTIONS ===== */
+function clickChest(x=1){let gain=state.perClick*x;if(Math.random()<0.05){gain*=2;log('Critical Click!');}state.crowns+=gain;state.totalCrowns+=gain;state.clicks++;updateUI();showFloat('+'+format(gain),60+Math.random()*200-100);}
+function buyCard(id){const card=cardsData.find(c=>c.id===id);const owned=state.owned[id];const cost=calcCost(card.baseCost,owned);if(state.crowns<cost){flashMessage('Not enough crowns!');return;}state.crowns-=cost;state.owned[id]+=1;updateCardUI(id);calcTotalCps();updateUI();log(`Bought ${card.name} (x${state.owned[id]})`);}
+function buyUpgrade(id){const u=upgradesData.find(x=>x.id===id);if(u.level>=u.max){flashMessage('Max level reached');return;}if(state.crowns<u.cost){flashMessage('Not enough crowns!');return;}state.crowns-=u.cost;u.level+=1;document.getElementById('up-'+id).innerText=u.level;u.cost=Math.floor(u.cost*1.4);document.getElementById('upCost-'+id).innerText=u.cost;if(u.id==='clickPower')state.perClick+=1;if(u.id==='doubleCPS') doubleCPSBoost();updateUI();log(`Bought Upgrade: ${u.name} (Level ${u.level})`);}
+function doubleCPSBoost(){const originalCps=state.cps;state.cps*=2;setTimeout(()=>{calcTotalCps();log('Elixir Boost Ended');},30000);log('Double CPS for 30s!');}
+/* ====== TICK LOOP ====== */
+let lastTick=Date.now();
+function tick(){const now=Date.now();const dt=(now-lastTick)/1000;lastTick=now;state.crowns+=state.cps*dt;state.totalCrowns+=state.cps*dt;updateUI();}
+setInterval(tick,100);
+/* ====== UI UPDATES ====== */
+function updateUI(){crownsSpan.innerText=format(state.crowns);totalSpan.innerText=format(state.totalCrowns);clicksSpan.innerText=state.clicks;perClickSpan.innerText=state.perClick;cardsData.forEach(c=>{document.getElementById('owned-'+c.id).innerText=state.owned[c.id];document.getElementById('cost-'+c.id).innerText=calcCost(c.baseCost,state.owned[c.id]);document.getElementById('buy-'+c.id).disabled=state.crowns<calcCost(c.baseCost,state.owned[c.id]);});upgradesData.forEach(u=>{document.getElementById('upCost-'+u.id).innerText=u.cost;document.getElementById('buyUp-'+u.id).disabled=state.crowns<u.cost||u.level>=u.max;});}
+/* ===== FLOATING TEXT ===== */
+function showFloat(text,left=140){const f=document.createElement('div');f.className='float';f.style.left=left+'px';f.style.bottom='20px';f.innerText=text;chestEl.appendChild(f);setTimeout(()=>f.remove(),900);}
+/* ===== LOGS ===== */
+function log(text){const line=document.createElement('div');line.innerHTML=`<strong style="color:#f59e0b">[${new Date().toLocaleTimeString()}]</strong> ${text}`;logBox.prepend(line);if(logBox.childElementCount>100)logBox.removeChild(logBox.lastChild);}
+function flashMessage(text){const el=document.createElement('div');el.innerText=text;el.style.position='fixed';el.style.left='50%';el.style.top='10%';el.style.transform='translateX(-50%)';el.style.padding='8px 14px';el.style.borderRadius='8px';el.style.background='rgba(255,255,255,0.06)';el.style.color='white';document.body.appendChild(el);setTimeout(()=>el.remove(),900);}
+/* ===== EVENTS ===== */
+chestEl.addEventListener('click',()=>clickChest(1));document.addEventListener('keydown',e=>{if(e.code==='Space'){e.preventDefault();clickChest(1);}});document.getElementById('saveBtn').addEventListener('click',saveGame);document.getElementById('resetBtn').addEventListener('click',()=>{if(!confirm('Reset all progress?'))return;localStorage.removeItem('clashclicker_v1');location.reload();});document.getElementById('exportBtn').addEventListener('click',()=>{navigator.clipboard.writeText(JSON.stringify(state)).then(()=>flashMessage('Save copied to clipboard'));});
+/* ===== SAVE/LOAD ===== */
+function saveGame(){state.lastSave=Date.now();localStorage.setItem('clashclicker_v1',JSON.stringify(state));document.getElementById('lastSave').innerText=new Date(state.lastSave).toLocaleString();flashMessage('Game saved');}
+function loadGame(){try{const raw=localStorage.getItem('clashclicker_v1');if(!raw)return;const s=JSON.parse(raw);state.crowns=s.crowns||state.crowns;state.totalCrowns=s.totalCrowns||state.totalCrowns;state.clicks=s.clicks||state.clicks;state.perClick=s.perClick||state.perClick;state.bestCps=s.bestCps||state.bestCps;state.lastSave=s.lastSave||state.lastSave;if(s.owned){Object.keys(s.owned).forEach(k=>{if(state.owned[k]!==undefined)state.owned[k]=s.owned[k];});}calcTotalCps();updateUI();log('Loaded save');}catch(err){console.error(err);}}
+function updateCardUI(id){document.getElementById('owned-'+id).innerText=state.owned[id];document.getElementById('cost-'+id).innerText=calcCost(cardsData.find(c=>c.id===id).baseCost,state.owned[id]);}
+loadGame();setInterval(saveGame,5000);
+/* ===== TABS ===== */
+document.querySelectorAll('.tab').forEach(t=>{t.addEventListener('click',()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));document.querySelectorAll('.tabContent').forEach(x=>x.classList.remove('active'));t.classList.add('active');document.getElementById(t.dataset.tab).classList.add('active');});});
+</script>
+</body>
+</html>

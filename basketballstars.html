@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Basketball Stars — One File</title>
+<style>
+  :root{
+    --bg1:#a9e3ff; --bg2:#7ecbff; --panel:rgba(255,255,255,0.85);
+    --accent:#ff7a00; --rim:#b22222;
+  }
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Arial,Helvetica,sans-serif;background:linear-gradient(var(--bg1),var(--bg2));}
+  .wrap{height:100%;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;}
+  canvas{background:linear-gradient(#dff5ff,#c3ecff);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,0.25);display:block;}
+  .ui {
+    position: absolute; left:24px; top:24px; background:var(--panel); padding:10px 14px; border-radius:12px; box-shadow:0 6px 18px rgba(0,0,0,0.08);
+  }
+  .ui h1{margin:0;font-size:18px}
+  .ui .small{font-size:13px;color:#073;}
+  .controls{position:absolute; right:24px; bottom:24px; background:var(--panel); padding:10px 12px; border-radius:12px;}
+  button{border:0;padding:6px 12px;border-radius:8px;background:var(--accent);color:white;cursor:pointer;font-weight:600}
+  .muted{color:#333a; font-size:12px}
+  .hint{position:absolute; left:50%; transform:translateX(-50%); top:18px; background:rgba(255,255,255,0.75); padding:8px 12px; border-radius:10px; font-size:13px}
+  .footer{position:absolute; right:24px; top:24px; background:var(--panel); padding:8px 12px; border-radius:10px; font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <canvas id="game" width="1200" height="640"></canvas>
+  <div class="ui" id="hud">
+    <h1>🏀 Basketball Stars — One File</h1>
+    <div style="margin-top:6px">
+      <div id="score" style="font-weight:700">Left 0 — 0 Right</div>
+      <div class="muted" style="margin-top:6px">Left controls: A/D move • W jump • Click & drag left half to aim/shoot<br>
+      Right controls: ←/→ move • ↑ jump • Click & drag right half to aim/shoot</div>
+    </div>
+  </div>
+  <div class="hint">Click & drag on a player's ball to aim — release to shoot. Press <strong>R</strong> to reset. Press <strong>C</strong> to toggle CPU for right player.</div>
+  <div class="controls">
+    <button id="resetBtn">Reset</button>
+    <button id="toggleCpuBtn">CPU: Off</button>
+  </div>
+  <div class="footer small">Save & open this file in your browser (Sublime Text recommended)</div>
+</div>
+
+<script>
+/*
+Single-file Basketball Stars style mini-game
+- Two players (left/right). Local 1v1 on same machine.
+- Click-drag in each half of the canvas to aim & set power for that player's shot.
+- Keyboard movement & jump.
+- Optional CPU for right player (toggle with C).
+*/
+
+// ---------- Config ----------
+const cfg = {
+  gravity: 0.65,
+  airFriction: 0.998,
+  groundFriction: 0.88,
+  ballRadius: 14,
+  playerW: 46,
+  playerH: 62,
+  hoopY: 200,
+  rimRadius: 20,
+  rimThickness: 6,
+  maxShootPower: 36,
+  courtFloorY: 560,
+  leftHoopX: 320,
+  rightHoopXOffset: 320, // from right edge
+};
+
+// ---------- Canvas ----------
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = canvas.width, H = canvas.height;
+
+// ---------- State ----------
+let leftScore = 0, rightScore = 0;
+let lastScoreTime = 0;
+let cpuOn = false;
+
+const player = {
+  left: {
+    x: 180, y: cfg.courtFloorY - cfg.playerH/2, vx:0, vy:0, onGround:true, facing:1,
+    hasBall: true, ball: null, color:'#2b7cff', controls:{leftKey:'a', rightKey:'d', jumpKey:'w'}
+  },
+  right: {
+    x: W - 180, y: cfg.courtFloorY - cfg.playerH/2, vx:0, vy:0, onGround:true, facing:-1,
+    hasBall: true, ball: null, color:'#ff4961', controls:{leftKey:'ArrowLeft', rightKey:'ArrowRight', jumpKey:'ArrowUp'}
+  }
+};
+
+// assign each player a ball object
+function makeBall(owner) {
+  return {
+    owner,
+    x: owner === 'left' ? player.left.x + 36 : player.right.x - 36,
+    y: owner === 'left' ? player.left.y - 8 : player.right.y - 8,
+    vx: 0, vy: 0, r: cfg.ballRadius, inAir: false, touchedRim:false
+  };
+}
+player.left.ball = makeBall('left');
+player.right.ball = makeBall('right');
+
+// rim centers
+function hoopX(side){
+  if (side === 'left') return cfg.leftHoopX;
+  return W - cfg.rightHoopXOffset;
+}
+const hoop = {
+  left: { x: hoopX('left'), y: cfg.hoopY, r: cfg.rimRadius, thickness: cfg.rimThickness },
+  right: { x: hoopX('right'), y: cfg.hoopY, r: cfg.rimRadius, thickness: cfg.rimThickness }
+};
+
+// input
+let keys = {};
+let mouse = { x:0, y:0, down:false, startX:0, startY:0, startTime:0, owner:null };
+
+// ---------- Events ----------
+canvas.addEventListener('mousedown', (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = e.clientX - rect.left; mouse.y = e.clientY - rect.top;
+  mouse.down = true; mouse.startX = mouse.x; mouse.startY = mouse.y; mouse.startTime = performance.now();
+  // determine owner by half
+  mouse.owner = (mouse.x < W/2) ? 'left' : 'right';
+});
+canvas.addEventListener('mousemove', (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = e.clientX - rect.left; mouse.y = e.clientY - rect.top;
+});
+canvas.addEventListener('mouseup', (e)=>{
+  if (!mouse.down) return;
+  mouse.down = false;
+  // release -> shoot for the owner if they have a controllable ball (not inAir)
+  const owner = mouse.owner;
+  if (!owner) return;
+  const p = player[owner];
+  const b = p.ball;
+  if (!b) return;
+  // only allow shoot when ball is not already in air
+  if (!b.inAir && (distance(mouse.startX, mouse.startY, b.x, b.y) <= b.r + 40 || true)) {
+    // compute vector from start drag to release (drag direction defines velocity)
+    const dx = mouse.startX - mouse.x;
+    const dy = mouse.startY - mouse.y;
+    let vx = dx * 0.26;
+    let vy = dy * 0.26;
+    // limit power
+    const mag = Math.hypot(vx, vy);
+    if (mag > cfg.maxShootPower) {
+      const s = cfg.maxShootPower / mag; vx *= s; vy *= s;
+    }
+    // convert to world velocity (players on right should flip horizontal to shoot towards opponent side)
+    if (owner === 'right') vx = vx;
+    // set ball
+    b.vx = vx; b.vy = vy; b.inAir = true; p.hasBall = false;
+  }
+  mouse.owner = null;
+});
+window.addEventListener('keydown', (e)=>{ keys[e.key] = true;
+  // quick shoot keys for players: q/e for left quick, ',' and '.' for right quick
+  if (e.key === 'r' || e.key === 'R') resetGame();
+  if (e.key === 'c' || e.key === 'C') toggleCPU();
+});
+window.addEventListener('keyup', (e)=>{ keys[e.key] = false; });
+
+// ---------- Utilities ----------
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+function distance(ax,ay,bx,by){ const dx=ax-bx, dy=ay-by; return Math.sqrt(dx*dx+dy*dy); }
+
+// ---------- Physics & Game Logic ----------
+function update(dt){
+  // players: input move/jump
+  handlePlayerInput('left', dt);
+  if (cpuOn) cpuBehavior(dt);
+  else handlePlayerInput('right', dt);
+
+  // update players motion & clamp to court
+  for (let side of ['left','right']){
+    const p = player[side];
+    // apply velocities
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    // gravity
+    p.vy += cfg.gravity * dt;
+    // simple ground collision
+    const groundY = cfg.courtFloorY - cfg.playerH/2;
+    if (p.y >= groundY){
+      p.y = groundY; p.vy = 0; p.onGround = true;
+    } else {
+      p.onGround = false;
+    }
+    // friction on ground
+    if (p.onGround) p.vx *= Math.pow(cfg.groundFriction, dt);
+    else p.vx *= Math.pow(cfg.airFriction, dt);
+
+    // bounds
+    p.x = clamp(p.x, 60, W - 60);
+    // face direction based on opponent
+    p.facing = (side === 'left') ? 1 : -1;
+  }
+
+  // update balls
+  for (let side of ['left','right']){
+    const p = player[side]; const b = p.ball;
+    // if player doesn't have ball and it's not inAir and not assigned, respawn near player after short time
+    if (!b.inAir && !p.hasBall){
+      // if ball resting on ground far away, let's respawn to the owner after a small cooldown
+      // We'll simply place a new ball near player when they are free and no ball inAir for them
+      p.ball = makeBall(side);
+      p.hasBall = true;
+      continue;
+    }
+    // if ball exists, update physics
+    if (b){
+      if (b.inAir){
+        b.vy += cfg.gravity * dt;
+        b.x += b.vx * dt;
+        b.y += b.vy * dt;
+        b.vx *= Math.pow(cfg.airFriction, dt);
+
+        // rim collisions (left and right rim pieces)
+        // treat rim as two circular blocks centered at (hoop.x +/- r, hoop.y)
+        const ownerHoop = (b.x < W/2) ? hoop.left : hoop.right;
+        // check collision with left and right rim pieces
+        const leftR = { x: ownerHoop.x - ownerHoop.r, y: ownerHoop.y };
+        const rightR = { x: ownerHoop.x + ownerHoop.r, y: ownerHoop.y };
+        [leftR, rightR].forEach(rim=>{
+          const d = distance(b.x,b.y, rim.x, rim.y);
+          const minD = b.r + ownerHoop.thickness;
+          if (d < minD && d>0.1){
+            // push out and reflect
+            const nx = (b.x - rim.x)/d, ny = (b.y - rim.y)/d;
+            b.x = rim.x + nx*minD;
+            b.y = rim.y + ny*minD;
+            const dot = b.vx*nx + b.vy*ny;
+            b.vx -= 1.6 * dot * nx;
+            b.vy -= 1.6 * dot * ny;
+            b.vx *= 0.95; b.vy *= 0.95;
+            b.touchedRim = true;
+          }
+        });
+
+        // backboard collision (simple rect)
+        const backboard = { x: ownerHoop.x + (b.x < W/2 ? 38 : -48), y: ownerHoop.y - 70, w: 10, h: 140 };
+        if (b.x + b.r > backboard.x && b.x - b.r < backboard.x + backboard.w && b.y - b.r < backboard.y + backboard.h && b.y + b.r > backboard.y){
+          // reflect horizontally
+          if (b.x < backboard.x) b.x = backboard.x - b.r - 1;
+          else b.x = backboard.x + backboard.w + b.r + 1;
+          b.vx *= -0.6; b.vy *= 0.9;
+        }
+
+        // floor collision
+        const floorY = cfg.courtFloorY;
+        if (b.y + b.r > floorY){
+          b.y = floorY - b.r;
+          b.vy *= -0.45;
+          b.vx *= 0.8;
+          if (Math.abs(b.vy) < 1 && Math.abs(b.vx) < 0.6){
+            b.inAir = false;
+            // ball will be picked up (respawn) next tick by owner logic
+          }
+        }
+
+        // score detection: when ball passes through hoop opening from above to below
+        const h = ownerHoop;
+        const dToCenter = distance(b.x, b.y, h.x, h.y);
+        if (!b._scored && b.vy > 0 && b.y - b.vy < h.y && b.y > h.y && dToCenter < (h.r - 6)){
+          // determine which side scored: if hoop is right side (x>W/2) then left team scored, vice versa
+          const scoredSide = (h.x > W/2) ? 'left' : 'right';
+          if (scoredSide === 'left') leftScore += 2; else rightScore += 2;
+          b._scored = true; lastScoreTime = performance.now();
+          // small effect: slow ball and drop
+          b.vx *= 0.2; b.vy = 2;
+        }
+
+        // ball leaves world horizontally -> clamp
+        if (b.x < -100 || b.x > W + 100) {
+          b.inAir = false;
+        }
+      } else {
+        // ball is resting: keep it attached to player if they have ball
+        if (p.hasBall){
+          b.x = p.x + (p === player.left ? 36 : -36);
+          b.y = p.y - 8;
+          b.vx = 0; b.vy = 0;
+        }
+      }
+    }
+  }
+
+  // winner or UI updates handled in draw
+}
+
+// ---------- Input handlers ----------
+function handlePlayerInput(side, dt){
+  const p = player[side];
+  const ctl = p.controls;
+  // horizontal movement
+  let leftPressed = !!keys[ctl.leftKey];
+  let rightPressed = !!keys[ctl.rightKey];
+  if (leftPressed) p.vx = clamp(p.vx - 0.9 * dt, -12, 12);
+  if (rightPressed) p.vx = clamp(p.vx + 0.9 * dt, -12, 12);
+  // jump
+  if (keys[ctl.jumpKey] && p.onGround){
+    p.vy = -12; p.onGround = false;
+  }
+  // quick shoot with keypad: 'q' for left quick, 'p' for right quick (optional)
+  // but we also allow mouse dragging (handled in mouse events)
+}
+
+// ---------- CPU Behavior ----------
+let cpuTimer = 0;
+function cpuBehavior(dt){
+  // simple CPU for right player: move toward ball and shoot occasionally
+  const p = player.right;
+  // find nearest ball (prefer owning ball if has it)
+  const targetBall = player.right.ball || player.left.ball;
+  // move toward center / ball
+  if (targetBall){
+    if (targetBall.x < p.x - 10) p.vx = clamp(p.vx - 0.6 * dt, -8, 8);
+    else if (targetBall.x > p.x + 10) p.vx = clamp(p.vx + 0.6 * dt, -8, 8);
+  }
+  // periodically attempt shot when has ball
+  cpuTimer += dt;
+  if (p.hasBall && p.ball && !p.ball.inAir && cpuTimer > 1000 + Math.random()*1000){
+    // aim toward opponent hoop
+    const hx = hoop.left.x; const hy = hoop.left.y;
+    const dx = p.ball.x - hx; const dy = p.ball.y - hy;
+    // compute rough velocity to arc toward hoop
+    const vx = (hx - p.ball.x) * -0.25 + (Math.random()-0.5)*4;
+    const vy = (hy - p.ball.y) * -0.18 - 6 + (Math.random()-0.5)*3;
+    p.ball.vx = vx; p.ball.vy = vy; p.ball.inAir = true; p.hasBall = false;
+    cpuTimer = 0;
+  }
+}
+
+// ---------- Draw ----------
+function draw(){
+  // sky and ground
+  ctx.clearRect(0,0,W,H);
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#dff5ff'); g.addColorStop(0.6,'#c3ecff'); g.addColorStop(1,'#eafcff');
+  ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+  // court floor
+  ctx.fillStyle = '#f7f2e6';
+  ctx.fillRect(0, cfg.courtFloorY, W, H - cfg.courtFloorY);
+  // center line
+  ctx.strokeStyle = 'rgba(0,0,0,0.06)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(W/2, cfg.courtFloorY); ctx.lineTo(W/2, H); ctx.stroke();
+
+  // draw hoops/backboards
+  drawHoop(hoop.left); drawHoop(hoop.right);
+
+  // players
+  drawPlayer(player.left);
+  drawPlayer(player.right);
+
+  // balls (draw foreground)
+  for (let side of ['left','right']){
+    const b = player[side].ball;
+    if (b) drawBall(b);
+  }
+
+  // middle UI: scores
+  ctx.fillStyle = 'rgba(0,0,0,0.7)';
+  ctx.font = '20px Inter, Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${leftScore} — ${rightScore}`, W/2, 40);
+
+  // small pop when score happened
+  if (performance.now() - lastScoreTime < 800){
+    ctx.fillStyle = 'rgba(255,122,0,0.95)';
+    ctx.font = 'bold 36px Inter, Arial';
+    ctx.fillText('+2', W/2, 84);
+  }
+
+  // controls hint small
+  ctx.font = '12px Inter, Arial';
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillText('Press R to reset • Press C to toggle CPU for right player', W/2, H - 18);
+}
+
+// draw a hoop/backboard
+function drawHoop(h){
+  // backboard
+  ctx.fillStyle = '#fff';
+  const bbW = 10, bbH = 120;
+  const bbx = h.x + (h.x < W/2 ? 38 : -bbW - 38);
+  ctx.fillRect(bbx, h.y - 70, bbW, bbH);
+  ctx.strokeStyle = '#d6d6d6'; ctx.strokeRect(bbx, h.y - 70, bbW, bbH);
+
+  // rim arc
+  ctx.lineWidth = h.thickness;
+  ctx.strokeStyle = '#b22222';
+  ctx.beginPath();
+  ctx.arc(h.x, h.y, h.r, Math.PI*0.15, Math.PI*0.85, false);
+  ctx.stroke();
+
+  // net hint (simple)
+  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+  for (let i=-2;i<=2;i++){
+    ctx.beginPath();
+    const sx = h.x + Math.cos(Math.PI*0.5 + i*0.42) * h.r * 0.6;
+    const sy = h.y + Math.sin(Math.PI*0.5 + i*0.42) * h.r * 0.6 + 6;
+    ctx.moveTo(sx, sy);
+    ctx.quadraticCurveTo(h.x, h.y + 36, sx + i*6, sy + 36);
+    ctx.stroke();
+  }
+}
+
+// draw player rectangle + simple face + label
+function drawPlayer(p){
+  // shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.12)';
+  ctx.beginPath(); ctx.ellipse(p.x, cfg.courtFloorY + 6, 36, 12, 0, 0, Math.PI*2); ctx.fill();
+
+  // body
+  ctx.fillStyle = p.color;
+  ctx.fillRect(p.x - cfg.playerW/2, p.y - cfg.playerH/2, cfg.playerW, cfg.playerH);
+  // head
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(p.x, p.y - cfg.playerH/2 - 10, 12, 0, Math.PI*2); ctx.fill();
+  // eyes
+  ctx.fillStyle = '#222'; ctx.fillRect(p.x - 5, p.y - cfg.playerH/2 - 12, 3,3); ctx.fillRect(p.x + 2, p.y - cfg.playerH/2 - 12, 3,3);
+}
+
+// draw ball
+function drawBall(b){
+  if (!b) return;
+  ctx.save();
+  ctx.translate(b.x, b.y);
+  // ball body
+  ctx.beginPath(); ctx.fillStyle = '#f39b3d'; ctx.arc(0,0,b.r,0,Math.PI*2); ctx.fill();
+  // stripes
+  ctx.strokeStyle = '#5a2f12'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(0,0,b.r-2, Math.PI*0.12, Math.PI*0.88); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0,0,b.r-2, Math.PI*1.12, Math.PI*1.88); ctx.stroke();
+  ctx.restore();
+}
+
+// ---------- Loop ----------
+let last = performance.now();
+function gameloop(ts){
+  const dt = Math.min( (ts - last) / (1000/60), 4 ); // normalized to ~1 per 60fps tick
+  last = ts;
+  update(dt * 1); // dt scaled
+  draw();
+  requestAnimationFrame(gameloop);
+}
+
+// ---------- Utilities UI & Controls ----------
+document.getElementById('resetBtn').addEventListener('click', resetGame);
+document.getElementById('toggleCpuBtn').addEventListener('click', toggleCPU);
+function toggleCPU(){
+  cpuOn = !cpuOn; document.getElementById('toggleCpuBtn').textContent = 'CPU: ' + (cpuOn ? 'On' : 'Off');
+}
+function resetGame(){
+  leftScore = 0; rightScore = 0;
+  player.left.x = 180; player.left.y = cfg.courtFloorY - cfg.playerH/2; player.left.vx = player.left.vy = 0; player.left.hasBall = true; player.left.ball = makeBall('left');
+  player.right.x = W - 180; player.right.y = cfg.courtFloorY - cfg.playerH/2; player.right.vx = player.right.vy = 0; player.right.hasBall = true; player.right.ball = makeBall('right');
+}
+function makeBall(owner){
+  return {
+    owner,
+    x: owner === 'left' ? player.left.x + 36 : player.right.x - 36,
+    y: owner === 'left' ? player.left.y - 8 : player.right.y - 8,
+    vx: 0, vy: 0, r: cfg.ballRadius, inAir: false, touchedRim:false, _scored:false
+  };
+}
+
+// init
+resetGame();
+requestAnimationFrame(gameloop);
+
+</script>
+</body>
+</html>

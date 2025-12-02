@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+#light{
+	background-color: lightyellow;
+	width: 200px;
+	height: 400px;
+	padding-top: 20px;
+}
+.circle{
+	width: 100px;
+	height: 100px;
+	border-radius: 50%;
+	margin: 15px;
+	border: 1px solid black;
+}
+#red{ background-color: darkred; }
+#yellow{ background-color: gold; }
+#green{ background-color: darkgreen; }
+
+#carContainer{
+	width: 100%;
+	height: 150px;
+	position: relative;
+	overflow: hidden;
+	margin-top: 40px;
+}
+
+#car{
+	width: 200px;
+	position: absolute;
+	left: calc(50% - 100px); /* center */
+	top: 0;
+	transition: left 1.2s linear;
+}
+</style>
+</head>
+<body>
+
+<center>
+<div id="light">
+	<div class="circle" id="red"></div>
+	<div class="circle" id="yellow"></div>
+	<div class="circle" id="green"></div>
+</div>
+
+<div id="carContainer">
+	<img id="car" src="car.png">
+</div>
+</center>
+
+<script>
+let counter = 0;
+let red = document.getElementById("red");
+let yellow = document.getElementById("yellow");
+let green = document.getElementById("green");
+let car = document.getElementById("car");
+
+// starting position under the traffic light
+let originalPos = car.style.left;
+
+document.addEventListener("click", function(){
+	counter++;
+
+	// RED → car comes in from RIGHT
+	if(counter == 1){
+		red.style.backgroundColor = "red";
+		yellow.style.backgroundColor = "gold";
+		green.style.backgroundColor = "darkgreen";
+
+		// place car off-screen to the right
+		car.style.left = "120%";
+
+		// animate car back to original position
+		setTimeout(()=>{
+			car.style.left = originalPos;
+		}, 50);
+	}
+
+	// YELLOW → car stays still
+	if(counter == 2){
+		red.style.backgroundColor = "darkred";
+		yellow.style.backgroundColor = "yellow";
+		green.style.backgroundColor = "darkgreen";
+	}
+
+	// GREEN → car drives off to LEFT
+	if(counter == 3){
+		red.style.backgroundColor = "darkred";
+		yellow.style.backgroundColor = "gold";
+		green.style.backgroundColor = "#49e048";
+
+		car.style.left = "-300px"; // drive off to left
+
+		counter = 0; // reset
+	}
+});
+</script>
+
+</body>
+</html>
