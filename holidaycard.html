@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+	
+<style type="text/css">
+.tj{
+width: 100px;
+height: 100px;
+/*position: absolute;*/
+background-image: url(TJ1.png);
+display: inline-block;
+background-size: contain;
+background-repeat: no-repeat;
+}
+#dog{
+width: 100px;
+height: 100px;
+/*position: absolute;*/
+background-image: url(car.png);
+display: inline-block;
+background-size: contain;
+background-repeat: no-repeat;	
+}
+</style>
+</head>
+<body>
+<div id=dog></div>
+<script type="text/javascript">
+
+function makeDog (){
+let dog = document.createElement("div")
+document.body.appendChild(dog)
+dog.classList.add("tj")
+}
+document.addEventListener("click", makeDog)
+
+
+let counter=0;
+dog.addEventListener("click", function(){
+	counter=counter+1
+	console.log(counter)
+	dog.style.backgroundImage="url(car.png)"
+})
+
+</script>
+
+
+
+
+
+
+</body>
+</html>
