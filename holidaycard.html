@@ -12,11 +12,12 @@ display: inline-block;
 background-size: contain;
 background-repeat: no-repeat;
 }
-#dog{
+
+.alex{
 width: 100px;
 height: 100px;
 /*position: absolute;*/
-background-image: url(car.png);
+background-image: url(littleAlex.png);
 display: inline-block;
 background-size: contain;
 background-repeat: no-repeat;	
@@ -27,20 +28,28 @@ background-repeat: no-repeat;
 <div id=dog></div>
 <script type="text/javascript">
 
+	let counter=0;
+
+
 function makeDog (){
+	counter=counter+1
 let dog = document.createElement("div")
 document.body.appendChild(dog)
-dog.classList.add("tj")
+
+if(counter%2==0){dog.classList.add("tj")}
+
+if(counter%2==1){dog.classList.add("alex")}
 }
+
+
+
 document.addEventListener("click", makeDog)
 
-
-let counter=0;
-dog.addEventListener("click", function(){
-	counter=counter+1
-	console.log(counter)
-	dog.style.backgroundImage="url(car.png)"
-})
+// dog.addEventListener("click", function(){
+// 	counter=counter+1
+// 	console.log(counter)
+// 	dog.style.backgroundImage="url(littleAlex.png)"
+// })
 
 </script>
 
