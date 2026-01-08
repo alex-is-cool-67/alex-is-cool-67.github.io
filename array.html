@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+  
+  <style>
+    body {
+      
+    }
+
+    #question {
+      font-size: 30px;
+      margin-bottom: 15px;
+    }
+
+    #image {
+      width: 300px;
+      height: 200px;
+      object-fit: contain;
+      border: 2px solid black;
+    }
+  </style>
+</head>
+
+<body>
+  <center>
+    <div id="question">
+      Can you name all the Cars characters? Click and find out!
+    </div>
+
+    <img id="image">
+  </center>
+
+  <script>
+    cars = [
+      "mater2.jpeg",
+      "https://easydrawingguides.com/wp-content/uploads/2019/09/how-to-draw-lightning-mcqueen-featured-image-1200.png",
+      "sally.jpeg",
+      "filmore.jpeg"
+    ];
+
+    question = document.getElementById("question");
+    image = document.getElementById("image");
+
+    question.onclick = function () {
+      randomIndex = Math.floor(Math.random() * cars.length);
+      image.src = cars[randomIndex];
+    };
+  </script>
+</body>
+</html>

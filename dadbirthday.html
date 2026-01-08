@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Happy Birthday Dad</title>
+
+<style>
+body {
+    margin: 0;
+    height: 100vh;
+    background: black;
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    overflow: hidden;
+}
+
+#startScreen {
+    text-align: center;
+}
+
+#startBtn {
+    font-size: 32px;
+    padding: 20px 40px;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    background: linear-gradient(45deg, #ff416c, #ff4b2b);
+    color: white;
+}
+
+#slideshow {
+    display: none;
+    width: 100%;
+    height: 100%;
+    position: relative;
+}
+
+.slide {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    opacity: 0;
+    transition: opacity 1.5s ease-in-out;
+}
+
+.slide.active {
+    opacity: 1;
+}
+#finalMessage {
+    display: none;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: black;
+    color: white;
+    font-size: 48px;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px;
+    line-height: 1.4;
+    opacity: 0;
+    transition: opacity 2s ease-in-out;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="startScreen">
+    <h1>Happy Birthday Dad ❤️</h1>
+    <button id="startBtn">Happy Birthday 🎉</button>
+</div>
+
+<div id="slideshow">
+	<div id="finalMessage">
+    Happy Birthday Dad ❤️<br><br>
+    Thank you for everything.<br>
+    I love you.
+</div>
+    <!-- Images inserted by JS -->
+</div>
+
+<audio id="music" src="music.mp3"></audio>
+
+<script>
+const slideshow = document.getElementById("slideshow");
+const startBtn = document.getElementById("startBtn");
+const startScreen = document.getElementById("startScreen");
+const music = document.getElementById("music");
+
+const totalPhotos = 20;
+let slides = [];
+let current = 0;
+
+// Create slides
+for (let i = 1; i <= totalPhotos; i++) {
+    const img = document.createElement("img");
+    img.src = `photo${i}.jpg`;
+    img.className = "slide";
+    slideshow.appendChild(img);
+    slides.push(img);
+}
+
+function showSlide(index) {
+    slides.forEach(slide => slide.classList.remove("active"));
+    slides[index].classList.add("active");
+}
+
+function startSlideshow() {
+    startScreen.style.display = "none";
+    slideshow.style.display = "block";
+
+    music.volume = 0.5;
+    music.play();
+
+    showSlide(current);
+
+    let slideshowInterval = setInterval(() => {
+    current++;
+
+    if (current < totalPhotos) {
+        showSlide(current);
+    } else {
+        clearInterval(slideshowInterval);
+
+        slides.forEach(slide => slide.classList.remove("active"));
+
+        const finalMessage = document.getElementById("finalMessage");
+        finalMessage.style.display = "flex";
+
+        setTimeout(() => {
+            finalMessage.style.opacity = 1;
+        }, 100);
+    }
+}, 4000);
+ // 4 seconds per photo
+}
+
+startBtn.onclick = startSlideshow;
+</script>
+
+</body>
+</html>

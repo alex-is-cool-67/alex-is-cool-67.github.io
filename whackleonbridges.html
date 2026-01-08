@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<style type="text/css">
+		#leon{
+			width: 100px;
+			height: 100px;
+			border-radius: 50%;
+			background-size: contain;
+			background-repeat: no-repeat;
+			background-image: url(leon.png);
+			position: absolute;
+			left: 100px;
+			top: 200px;
+			transition: .5s;
+		}
+	</style>
+</head>
+<body>
+<div id="leon"></div>
+<script type="text/javascript">
+
+	leon.style.height="100px"
+	leon.style.width="100px"
+	function movingLeon (){
+		leon.style.left = Math.random()*1000+"px"
+		leon.style.top = Math.random()*1000+"px"
+		}
+
+		function growingLeon (){
+			leon.style.height=parseInt(leon.style.height)*2+"px"
+			leon.style.width=parseInt(leon.style.width)*2+"px"
+			}
+
+
+		leon.addEventListener("click", function(){
+			growingLeon()
+			alert("TAKE ME TO THE RIVER") 
+		})
+
+		setInterval(movingLeon, 1000)
+	</script>
+</body>
+</html>
