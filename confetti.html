@@ -2,12 +2,18 @@
 <html>
 <head>
 	<style type="text/css">
+		body{
+			background-color: black;
+		}
 		.confetti{
 			width: 10px;
 			height: 67px;
 			/*background-color: blue;*/
 			display: inline-block;
 			border: 5px solid;
+			position: absolute;
+
+
 		}
 	</style>
 </head>
@@ -21,11 +27,23 @@
 		let r=Math.round(Math.random()*255)
 		let g=Math.round(Math.random()*255)
 		let b=Math.round(Math.random()*255)
+		let rotation = Math.random() * 360
 square.style.backgroundColor="rgb("+r+", "+g+", "+b+")"
 square.style.borderColor="rgb("+r+", "+g+", "+b+")"
+square.style.top = Math.random() * 1000 + "px"
+square.style.left = Math.random() * window.innerWidth + "px"
+square.style.height = Math.random() * 50 + "px"
+square.style.width = Math.random() * 50 + "px"
+
+square.style.transform = "rotate(" + rotation + "deg)"
 		let x = Math.round(Math.random()*2)
 		// square.style.backgroundColor = colors[x]
 		square.style.borderColor=colors[x]
+		function fall() {
+			let fallFactor = 20
+			square.style.top = parseInt(square.style.top) + fallFactor + "px"
+		}
+		setInterval(fall, 100)
 	}
 	setInterval(makeConfetti, 200)
 
