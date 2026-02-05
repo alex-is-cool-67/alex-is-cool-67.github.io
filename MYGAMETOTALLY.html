@@ -1,0 +1,1230 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Inkbound: The Pen Nib Update (Slanted Rails Edition)</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #222; overflow: hidden; font-family: 'Courier New', monospace; }
+        canvas { display: block; }
+        
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        #hud { position: absolute; top: 20px; left: 20px; color: #333; font-weight: bold; font-size: 18px; text-shadow: 1px 1px 0 #fff;}
+        
+        #game-over { 
+            display: none; 
+            position: absolute; 
+            top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.85); 
+            color: white; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            pointer-events: auto;
+            z-index: 10;
+        }
+        #game-over h1 { font-size: 60px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 5px; }
+        .btn-container { display: flex; gap: 20px; }
+        button { 
+            padding: 15px 30px; 
+            font-size: 20px; 
+            font-weight: bold;
+            font-family: 'Courier New', monospace; 
+            background: white; border: none; cursor: pointer; 
+            transition: 0.2s;
+            border: 2px solid #000;
+        }
+        button:hover { background: #ccc; transform: scale(1.1); box-shadow: 4px 4px 0 rgba(255,255,255,0.5); }
+    </style>
+</head>
+<body>
+
+<div id="ui-layer">
+    <div id="hud">Loading...</div>
+    <div id="game-over">
+        <h1>Out of Ink</h1>
+        <div class="btn-container">
+            <button id="retryLevelBtn">TRY AGAIN</button>
+            <button id="restartGameBtn">NEW SKETCH</button>
+        </div>
+    </div>
+</div>
+
+<canvas id="gameCanvas"></canvas>
+
+<script>
+/**
+ * INKBOUND - THE SLANTED RAIL UPDATE
+ * - Mechanic Overhaul: Rails are now vector lines (Rail class), not blocks.
+ * - Physics: Player snaps to the rail line and rotates to match slope.
+ * - Level 8: Redesigned as "Watercolor Reef" with water + rails.
+ * - Level 7: Door lowered 100px.
+ * - Drill Speed: 13.
+ */
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const hud = document.getElementById('hud');
+const gameOverScreen = document.getElementById('game-over');
+const retryLevelBtn = document.getElementById('retryLevelBtn');
+const restartGameBtn = document.getElementById('restartGameBtn');
+
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// --- CONSTANTS ---
+const GRAVITY = 0.6;
+const WATER_GRAVITY = 0.1;
+const SPEED = 6;
+const RAIL_SPEED = 14; 
+const JUMP_FORCE = -14;
+
+// ATTACK VALUES
+const ATTACK_COOLDOWN = 50; 
+const ATTACK_DURATION = 15;
+const DRILL_SPEED = 13; 
+
+const THEMES = {
+    PAPER: { id: "paper", bg: "#fdfbf7", line: "#333", accent: "orange", water: "rgba(0, 150, 255, 0.2)" },
+    BLUEPRINT: { id: "blue", bg: "#001a33", line: "#fff", accent: "#00ffff", water: "rgba(0,0,0,0.3)" },
+    GRAPH: { id: "graph", bg: "#ffffff", line: "#004400", accent: "#00aa00", water: "rgba(0, 255, 100, 0.1)" },
+    CARDBOARD: { id: "card", bg: "#cbb69d", line: "#5e4b35", accent: "#8b0000", water: "rgba(50, 50, 150, 0.3)" },
+    NIGHT: { id: "night", bg: "#1a1a2e", line: "#e0e0e0", accent: "#ff0055", water: "rgba(20, 20, 60, 0.5)" },
+    WATERCOLOR: { id: "watercolor", bg: "#e6f7ff", line: "#005577", accent: "#ff0099", water: "rgba(0, 200, 255, 0.4)" } 
+};
+
+const ACTIVE_COLOR = "#0066cc"; 
+
+// --- INPUTS ---
+const keys = { ArrowUp: false, ArrowDown: false, ArrowLeft: false, ArrowRight: false, KeyE: false };
+document.addEventListener('keydown', e => { if(keys.hasOwnProperty(e.code)) keys[e.code] = true; });
+document.addEventListener('keyup', e => { if(keys.hasOwnProperty(e.code)) keys[e.code] = false; });
+
+// --- RESTART LOGIC ---
+retryLevelBtn.addEventListener('click', () => {
+    gameState.isGameOver = false;
+    gameOverScreen.style.display = "none";
+    player.health = 100;
+    player.resetState(); 
+    loadLevel(gameState.level);
+});
+
+restartGameBtn.addEventListener('click', () => {
+    gameState.isGameOver = false;
+    gameOverScreen.style.display = "none";
+    player.resetFull(); 
+    loadLevel(1);
+});
+
+// --- VISUAL UTILS ---
+function sketchLine(x1, y1, x2, y2, color, width = 2) {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    let dist = Math.hypot(x2 - x1, y2 - y1);
+    let segments = Math.max(1, Math.floor(dist / 10));
+    for (let i = 1; i <= segments; i++) {
+        let t = i / segments;
+        let j = (Math.random() - 0.5) * 1.5; 
+        ctx.lineTo(x1 + (x2 - x1) * t + j, y1 + (y2 - y1) * t + j);
+    }
+    ctx.stroke();
+}
+
+function sketchTri(x1, y1, x2, y2, x3, y3, color, fill=false) {
+    if (fill) {
+        ctx.fillStyle = color;
+        ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.lineTo(x3,y3); ctx.fill();
+    }
+    sketchLine(x1, y1, x2, y2, color);
+    sketchLine(x2, y2, x3, y3, color);
+    sketchLine(x3, y3, x1, y1, color);
+}
+
+function sketchRect(x, y, w, h, color) {
+    sketchLine(x,y,x+w,y, color); sketchLine(x+w,y,x+w,y+h, color);
+    sketchLine(x+w,y+h,x,y+h, color); sketchLine(x,y+h,x,y, color);
+}
+
+function drawGooglyEye(cx, cy, r) {
+    ctx.fillStyle = "white"; ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2); ctx.fill();
+    let offX = (Math.random()-0.5)*2; let offY = (Math.random()-0.5)*2;
+    ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(cx+offX, cy+offY, r/2, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = "black"; ctx.lineWidth = 1; ctx.stroke();
+}
+
+// --- GAME STATE ---
+let gameState = {
+    level: 1,
+    theme: THEMES.PAPER,
+    waterLevel: 900,
+    worldWidth: 3500,
+    worldHeight: 1500,
+    isGameOver: false
+};
+
+// --- ENTITIES ---
+
+class Rail {
+    constructor(x1, y1, x2, y2, color="black") {
+        this.x1 = x1; this.y1 = y1;
+        this.x2 = x2; this.y2 = y2;
+        this.color = color;
+        // Vector math properties
+        this.len = Math.hypot(x2-x1, y2-y1);
+        this.ux = (x2-x1) / this.len;
+        this.uy = (y2-y1) / this.len;
+        this.angle = Math.atan2(y2-y1, x2-x1);
+    }
+
+    draw(cx, cy) {
+        // Draw the rail as a thick, sketched line
+        sketchLine(this.x1 - cx, this.y1 - cy, this.x2 - cx, this.y2 - cy, this.color, 4);
+        // Add some "supports" periodically
+        if (Math.abs(this.x2 - this.x1) > 50) {
+            let steps = Math.floor(this.len / 100);
+            for(let i=1; i<steps; i++) {
+                let px = this.x1 + this.ux * (i*100) - cx;
+                let py = this.y1 + this.uy * (i*100) - cy;
+                ctx.globalAlpha = 0.5;
+                sketchLine(px, py, px, py + 30, this.color, 1);
+                ctx.globalAlpha = 1.0;
+            }
+        }
+    }
+}
+
+class Player {
+    constructor() { this.resetFull(); }
+
+    resetFull() {
+        this.hasKite = false; 
+        this.isLaminated = false;
+        this.health = 100;
+        this.resetState();
+    }
+
+    resetState() {
+        this.x = 50; this.y = 1100;
+        this.w = 30; this.h = 50;
+        this.dx = 0; this.dy = 0;
+        this.facingRight = true;
+        this.grounded = false;
+        this.onRail = false;
+        this.currentRail = null;
+        this.form = "knight";
+        this.angle = 0;
+        this.attackTimer = 0;
+        this.cooldownTimer = 0;
+        this.flinchTimer = 0; 
+    }
+
+    takeDamage(amount, knockbackDir, sourceType) {
+        if (this.attackTimer > 0) return; 
+        this.health -= amount;
+        
+        for(let i=0; i<8; i++) particles.push(new Particle(this.x+15, this.y+25, "black"));
+
+        if (sourceType === "projectile") {
+            this.flinchTimer = 6; 
+            this.dy = -4;
+            this.dx = knockbackDir * 6;
+            this.detachRail();
+        }
+    }
+    
+    detachRail() {
+        this.onRail = false;
+        this.currentRail = null;
+        this.form = "knight";
+        this.angle = 0;
+    }
+
+    update() {
+        if (this.health <= 0) return triggerGameOver();
+
+        let inWater = this.y > gameState.waterLevel;
+        if (this.cooldownTimer > 0) this.cooldownTimer--;
+        if (this.attackTimer > 0) this.attackTimer--;
+        if (this.flinchTimer > 0) this.flinchTimer--;
+
+        let canControl = this.flinchTimer <= 0;
+
+        // Form Logic
+        // Rail takes priority over water for "surfing" mechanic
+        if (this.onRail) this.form = "pen";
+        else if (inWater && this.isLaminated) this.form = "squid";
+        else if (this.hasKite && !this.grounded && keys.ArrowUp && !inWater && this.dy > 0 && canControl) this.form = "kite";
+        else this.form = "knight";
+
+        // Attack Logic
+        if (canControl && keys.KeyE && this.cooldownTimer <= 0 && this.form !== "pen") {
+            this.attackTimer = ATTACK_DURATION;
+            this.cooldownTimer = ATTACK_COOLDOWN;
+            if (this.form === "squid") {
+                this.dx = Math.cos(this.angle) * DRILL_SPEED;
+                this.dy = Math.sin(this.angle) * DRILL_SPEED;
+            } else if (this.form === "knight") {
+                this.dx *= 0.2; this.dy = -3;
+            }
+        }
+
+        // Damage Logic (Pen kills on contact too)
+        if (this.attackTimer > 0 || (this.form === "pen" && Math.abs(this.dx) > 10)) {
+            enemies.forEach(e => {
+                let dist = Math.hypot((this.x + this.w/2) - (e.x + e.w/2), (this.y + this.h/2) - (e.y + e.h/2));
+                if (dist < 80) { 
+                    let dmg = (this.form === "squid") ? 3 : 10; 
+                    if (this.form === "pen") dmg = 20; 
+                    e.hp -= dmg;
+                    e.knockback(this.x);
+                    if (Math.random()>0.5) particles.push(new Particle(e.x + e.w/2, e.y + e.h/2, "black"));
+                }
+            });
+        }
+
+        // --- MOVEMENT LOGIC ---
+        if (canControl) {
+            // --- ON RAIL LOGIC (NEW) ---
+            if (this.onRail && this.currentRail) {
+                this.w = 40; this.h = 20;
+                let r = this.currentRail;
+                
+                // Snap to rail line
+                // Find nearest point on line for x
+                // We actually move along the line based on input
+                let speed = RAIL_SPEED;
+                
+                // Determine direction based on keys or momentum
+                let moveDir = 0;
+                if (keys.ArrowRight) { moveDir = 1; this.facingRight = true; }
+                else if (keys.ArrowLeft) { moveDir = -1; this.facingRight = false; }
+                else { moveDir = this.facingRight ? 1 : -1; }
+
+                // Move along vector
+                this.dx = r.ux * speed * moveDir;
+                this.dy = r.uy * speed * moveDir;
+                
+                // Apply movement
+                this.x += this.dx;
+                this.y += this.dy;
+
+                // Set Angle
+                this.angle = r.angle;
+                // If moving left, we flip sprite, but angle might need adjustment visually
+                // We handle visual rotation in draw()
+
+                // Check bounds of rail (did we slide off?)
+                // Project current pos onto line segment
+                let railVecX = r.x2 - r.x1;
+                let railVecY = r.y2 - r.y1;
+                let playerVecX = this.x - r.x1;
+                let playerVecY = this.y - r.y1;
+                let t = (playerVecX * railVecX + playerVecY * railVecY) / (r.len * r.len);
+
+                // If t < 0 or t > 1, we fell off the ends
+                if (t < 0 || t > 1) {
+                    this.detachRail();
+                    // Give a little boost in direction of travel
+                    this.dx = r.ux * speed * moveDir;
+                    this.dy = r.uy * speed * moveDir;
+                }
+
+                // Jump off rail
+                if (keys.ArrowUp) {
+                    this.detachRail();
+                    this.dy = JUMP_FORCE;
+                    this.dx = (this.facingRight ? 1 : -1) * SPEED;
+                }
+
+                // Sparks
+                if(Math.random() > 0.5) {
+                    let tipX = this.facingRight ? this.x + 40 : this.x;
+                    let tipY = this.y + 10;
+                    particles.push(new Particle(tipX, tipY, "orange", "ink"));
+                }
+            }
+            // --- SQUID LOGIC ---
+            else if (this.form === "squid") {
+                this.w = 50; this.h = 30;
+                if (this.attackTimer <= 0) {
+                    if (keys.ArrowLeft) this.dx -= 0.5;
+                    if (keys.ArrowRight) this.dx += 0.5;
+                    if (keys.ArrowUp) this.dy -= 0.5;
+                    if (keys.ArrowDown) this.dy += 0.5;
+                    this.dx *= 0.9; this.dy *= 0.9;
+                    if (Math.abs(this.dx) > 0.1 || Math.abs(this.dy) > 0.1) this.angle = Math.atan2(this.dy, this.dx);
+                }
+                this.dy += WATER_GRAVITY;
+                this.x += this.dx;
+                this.y += this.dy;
+                
+                // Bubble effect
+                if (Math.abs(this.dx) > 0.5 || Math.abs(this.dy) > 0.5) {
+                    if(Math.random() > 0.5) particles.push(new Particle(this.x, this.y, "rgba(255,255,255,0.6)", "bubble"));
+                }
+            }
+            // --- KITE LOGIC ---
+            else if (this.form === "kite") {
+                if (keys.ArrowLeft) this.dx -= 0.3;
+                if (keys.ArrowRight) this.dx += 0.3;
+                if (keys.ArrowDown) this.dy += 0.4; 
+                else this.dy += 0.1; 
+                if (this.dy > 3) this.dy = 3;
+                this.angle = 0;
+                this.x += this.dx;
+                this.y += this.dy;
+            }
+            // --- KNIGHT LOGIC ---
+            else { 
+                this.w = 30; this.h = 50;
+                this.angle = 0;
+                if (this.attackTimer === 0) { 
+                    if (keys.ArrowLeft) { this.dx = -SPEED; this.facingRight = false; }
+                    if (keys.ArrowRight) { this.dx = SPEED; this.facingRight = true; }
+                }
+                if (!keys.ArrowLeft && !keys.ArrowRight) this.dx *= 0.8;
+                if (keys.ArrowUp && this.grounded) {
+                    this.dy = JUMP_FORCE;
+                    this.grounded = false;
+                    for(let i=0; i<5; i++) particles.push(new Particle(this.x+15, this.y+50, gameState.theme.line));
+                }
+                this.dy += GRAVITY;
+                
+                // Water drag for knight
+                if (inWater && !this.isLaminated) { this.health -= 0.5; this.dx *= 0.5; }
+                
+                this.x += this.dx;
+                this.y += this.dy;
+            }
+        } else {
+            // Uncontrollable (flinching)
+            this.dy += GRAVITY;
+            this.dx *= 0.95; 
+            this.x += this.dx;
+            this.y += this.dy;
+        }
+
+        // --- COLLISION ---
+        this.grounded = false;
+        
+        // Rail Detection (Attaching)
+        if (!this.onRail && this.dy >= 0) { // Only attach if falling or flat
+            // Center point of player feet
+            let px = this.x + this.w/2;
+            let py = this.y + this.h;
+            
+            for(let r of rails) {
+                // Check if player X is within rail X bounds (plus buffer)
+                let minX = Math.min(r.x1, r.x2) - 10;
+                let maxX = Math.max(r.x1, r.x2) + 10;
+                
+                if (px >= minX && px <= maxX) {
+                    // Distance from point to line segment
+                    // Line eq: A + t(B-A)
+                    let l2 = r.len * r.len;
+                    if (l2 == 0) continue;
+                    let t = ((px - r.x1) * (r.x2 - r.x1) + (py - r.y1) * (r.y2 - r.y1)) / l2;
+                    t = Math.max(0, Math.min(1, t));
+                    let projX = r.x1 + t * (r.x2 - r.x1);
+                    let projY = r.y1 + t * (r.y2 - r.y1);
+                    
+                    let dist = Math.hypot(px - projX, py - projY);
+                    
+                    // Snap threshold
+                    if (dist < 25 && (py >= projY - 10)) {
+                        this.onRail = true;
+                        this.currentRail = r;
+                        this.y = projY - this.h/2; // Adjust visually
+                        this.x = projX - this.w/2;
+                        this.dy = 0;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Platform Collision
+        if (!this.onRail) {
+            platforms.forEach(p => {
+                if (this.x < p.x + p.w && this.x + this.w > p.x &&
+                    this.y < p.y + p.h && this.y + this.h > p.y) {
+                    
+                    if (this.dy < 0 && this.y - this.dy >= p.y + p.h) { this.y = p.y + p.h; this.dy = 0; }
+                    else if (this.dx > 0 && this.x + this.w - this.dx <= p.x) { this.x = p.x - this.w; }
+                    else if (this.dx < 0 && this.x - this.dx >= p.x + p.w) { this.x = p.x + p.w; }
+                    else if (this.dy >= 0) {
+                        this.y = p.y - this.h; 
+                        this.dy = 0; 
+                        this.grounded = true;
+                    }
+                }
+            });
+        }
+
+        if (this.x < 0) this.x = 0;
+        if (this.x > gameState.worldWidth) this.x = gameState.worldWidth;
+        if (this.y > gameState.worldHeight) this.health = 0;
+    }
+
+    draw(camX, camY) {
+        let x = this.x - camX;
+        let y = this.y - camY;
+        let color = gameState.theme.line;
+
+        if (this.flinchTimer > 0) {
+            ctx.globalAlpha = (Math.floor(Date.now() / 50) % 2 === 0) ? 0.5 : 1.0;
+        }
+        else if (this.y > gameState.waterLevel && !this.isLaminated && !this.onRail) ctx.strokeStyle = "red";
+        else ctx.strokeStyle = color;
+
+        // --- FORM RENDERING ---
+
+        if (this.form === "pen") {
+            // --- PEN NIB ---
+            ctx.save();
+            // Translate to center
+            ctx.translate(x + this.w/2, y + this.h/2);
+            
+            // Rotation Logic
+            let rot = this.angle;
+            // If facing left, we need to handle the flip + rotation carefully
+            // Standard Pen sprite points RIGHT.
+            if (!this.facingRight) {
+               ctx.scale(-1, 1);
+               // If the rail is angled up/down, we need to invert the rotation relative to the flip
+               // Rail angle is absolute. If rail goes down (positive angle), and we face left,
+               // the sprite needs to point down-left. 
+               // Math: flipping X axis inverts rotation direction visually.
+               ctx.rotate(-rot); 
+            } else {
+               ctx.rotate(rot);
+            }
+            
+            // Pen Body
+            sketchTri(-25, -15, 25, 0, -25, 15, "gold", true);
+            
+            // Silver Tip
+            ctx.fillStyle = "silver";
+            ctx.beginPath(); ctx.moveTo(20, -3); ctx.lineTo(35, 0); ctx.lineTo(20, 3); ctx.fill();
+            
+            // Ink Slit
+            sketchLine(0, 0, 30, 0, "black", 2);
+            ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI*2); ctx.fill();
+            
+            // Sparks
+            if (Math.random() > 0.5) {
+                sketchLine(35, 0, 45, (Math.random()-0.5)*10, "orange", 1);
+            }
+
+            ctx.restore();
+        }
+        else if (this.form === "squid") {
+            // --- SQUID ---
+            ctx.save();
+            ctx.translate(x + 25, y + 15);
+            ctx.rotate(this.angle);
+            let isAttacking = this.attackTimer > 0;
+            let squidColor = isAttacking ? "white" : "#0055ff"; 
+
+            if (isAttacking) {
+                ctx.strokeStyle = "white"; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.arc(0, 0, 24, 0, Math.PI*2); ctx.stroke();
+            }
+            sketchTri(-18, 9, 18, 0, -18, -9, squidColor, true);
+            if (isAttacking) sketchLine(18, 0, 31, 0, "white", 3);
+            
+            let wave = Math.sin(Date.now() / 100) * 3;
+            sketchLine(-18, 5, -30, 5 + wave, squidColor, 3);
+            sketchLine(-18, -5, -30, -5 - wave, squidColor, 3);
+            ctx.restore();
+        }
+        else if (this.form === "kite") {
+             // --- KITE ---
+            let windX = (this.dx > 0) ? -15 : 15;
+            let flutter = Math.sin(Date.now() / 50) * 3; 
+            
+            ctx.strokeStyle = "red"; ctx.lineWidth = 2; ctx.beginPath();
+            ctx.moveTo(x+15, y+40);
+            ctx.quadraticCurveTo(x+15 + (windX*0.2), y+55 + flutter, x+15 + windX, y+60 + (flutter*0.5));
+            ctx.stroke();
+
+            ctx.strokeStyle = "red"; ctx.lineWidth = 2; ctx.beginPath();
+            ctx.moveTo(x+15, y+40); 
+            ctx.quadraticCurveTo(x+18 + (windX*0.24), y+60 - flutter, x+18 + windX, y+65 - (flutter*0.5));
+            ctx.stroke();
+
+            sketchTri(x+15, y, x+40, y+15, x+15, y+40, gameState.theme.accent);
+            sketchTri(x+15, y, x-10, y+15, x+15, y+40, gameState.theme.accent);
+        }
+        else { 
+            // --- KNIGHT (Standard) ---
+            if (this.attackTimer > 0) {
+                // Spin Attack
+                ctx.strokeStyle = ACTIVE_COLOR; ctx.lineWidth = 3;
+                ctx.beginPath();
+                for(let i=0; i<30; i++) {
+                    let angle = i + Date.now()/10;
+                    let radius = 25 + Math.random()*15;
+                    let tx = x + 15 + Math.cos(angle) * radius;
+                    let ty = y + 25 + Math.sin(angle) * radius;
+                    if (i===0) ctx.moveTo(tx, ty); else ctx.lineTo(tx, ty);
+                }
+                ctx.stroke();
+            }
+
+            let bob = this.grounded ? Math.abs(Math.sin(Date.now() / 150)) * 2 : 0;
+            sketchTri(x, y + 20 + bob, x + 30, y + 20 + bob, x + 15, y + 50 + bob, color);
+            sketchTri(x + 5, y + 20 + bob, x + 25, y + 20 + bob, x + 15, y + bob, color);
+            
+            if (Math.abs(this.dx) > 0.1 && this.grounded) {
+                let stride = Math.sin(Date.now() / 80) * 8;
+                sketchLine(x + 15, y + 50, x + 10 - stride, y + 60, color);
+                sketchLine(x + 15, y + 50, x + 20 + stride, y + 60, color);
+            }
+            if (this.flinchTimer <= 0) {
+                if (this.facingRight) sketchLine(x+5, y+25, x-10, y+45+bob, "red");
+                else sketchLine(x+25, y+25, x+40, y+45+bob, "red");
+            }
+        }
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+class Projectile {
+    constructor(x, y, dx, dy) {
+        this.x = x; this.y = y; this.dx = dx; this.dy = dy;
+        this.w = 10; this.h = 10;
+        this.active = true;
+    }
+    update() {
+        this.x += this.dx; this.y += this.dy;
+        if (checkRectCollide(this, player)) {
+            if (player.attackTimer > 0) {
+                this.active = false;
+                for(let i=0; i<5; i++) particles.push(new Particle(this.x, this.y, "black"));
+            } else {
+                let dir = (this.dx !== 0) ? Math.sign(this.dx) : Math.sign(player.x - this.x);
+                player.takeDamage(10, dir, "projectile");
+                this.active = false;
+            }
+        }
+        if (this.y > gameState.worldHeight || this.x < 0 || this.x > gameState.worldWidth) this.active = false;
+    }
+    draw(cx, cy) {
+        let x = this.x - cx; let y = this.y - cy;
+        ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2); ctx.fill();
+    }
+}
+
+// --- ENEMIES ---
+
+class PiranhaEnemy {
+    constructor(x, y) {
+        this.x = x; this.y = y; this.w = 30; this.h = 20;
+        this.type = "piranha";
+        this.isTough = Math.random() < 0.2;
+        this.hp = this.isTough ? 25 : 10;
+        this.vx = 0; this.vy = 0;
+        this.facingRight = true;
+    }
+    knockback(sx) { this.x += (this.x - sx > 0) ? 20 : -20; }
+    update() {
+        let inWater = player.y > gameState.waterLevel;
+        let dist = Math.hypot(player.x - this.x, player.y - this.y);
+        
+        let isFlyingLevel = gameState.level === 8;
+
+        if ((inWater || isFlyingLevel) && dist < 500) {
+            let angle = Math.atan2(player.y - this.y, player.x - this.x);
+            let speed = this.isTough ? 3 : 4; 
+            if (isFlyingLevel) speed = 2.5; 
+            this.vx = Math.cos(angle) * speed;
+            this.vy = Math.sin(angle) * speed;
+            this.facingRight = (player.x > this.x);
+        } else {
+            this.vx *= 0.95; this.vy *= 0.95;
+        }
+        this.x += this.vx; this.y += this.vy;
+        if (!isFlyingLevel && this.y < gameState.waterLevel + 10) this.y = gameState.waterLevel + 10;
+        
+        if (checkRectCollide(this, player) && player.attackTimer === 0) {
+            player.takeDamage(this.isTough ? 2 : 1, (Math.random()-0.5)*2, "contact");
+        }
+    }
+    draw(cx, cy) {
+        let x = this.x - cx; let y = this.y - cy;
+        let color = this.isTough ? "#880000" : "#ff4444";
+        ctx.save();
+        ctx.translate(x + 15, y + 10);
+        if (!this.facingRight) ctx.scale(-1, 1);
+        sketchTri(-15, -10, -5, 0, -15, 10, color, true);
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.moveTo(-5, 0); ctx.lineTo(5, -10); ctx.lineTo(15, 0); ctx.lineTo(5, 10);
+        ctx.closePath();
+        ctx.fill();
+        drawGooglyEye(5, -4, 3);
+        ctx.restore();
+    }
+}
+
+class ThumbtackEnemy {
+    constructor(x, y) {
+        this.x = x; this.y = y; this.w = 40; this.h = 40;
+        this.type = "thumbtack";
+        this.hp = 30; 
+        this.vx = 0; this.vy = 0;
+        this.state = "PATROL";
+        this.stateTimer = 0;
+    }
+    knockback(sourceX) {
+        this.vx = (this.x - sourceX > 0) ? 8 : -8;
+        this.vy = -5;
+        this.state = "COOLDOWN";
+        this.stateTimer = 20;
+    }
+    update() {
+        let dist = Math.abs(player.x - this.x);
+        let dir = Math.sign(player.x - this.x);
+        if (this.state === "PATROL") {
+            if (dist < 300) { this.state = "WINDUP"; this.stateTimer = 40; }
+            else this.x += Math.sin(Date.now()/500); 
+        } 
+        else if (this.state === "WINDUP") {
+            this.stateTimer--; this.vx = 0;
+            if (this.stateTimer <= 0) { this.state = "LUNGE"; this.stateTimer = 30; this.vx = dir * 9; this.vy = -2;}
+        }
+        else if (this.state === "LUNGE") {
+            this.stateTimer--; this.vx *= 0.95;
+            if (this.stateTimer <= 0) { this.state = "COOLDOWN"; this.stateTimer = 60; }
+            if (checkRectCollide(this, player) && player.attackTimer === 0) {
+                player.takeDamage(20, Math.sign(player.x - this.x), "contact");
+            }
+        }
+        else if (this.state === "COOLDOWN") {
+            this.stateTimer--; this.vx *= 0.9;
+            if (this.stateTimer <= 0) this.state = "PATROL";
+        }
+        this.vy += GRAVITY;
+        let nextX = this.x + this.vx;
+        platforms.forEach(p => {
+            if (nextX < p.x + p.w && nextX + this.w > p.x &&
+                this.y + this.h > p.y && this.y + this.h < p.y + 40 && this.vy >= 0) {
+                this.y = p.y - this.h; this.vy = 0;
+                if (this.state === "PATROL" && (nextX < p.x || nextX + this.w > p.x + p.w)) this.vx *= -1;
+            }
+        });
+        if (player.attackTimer === 0 && checkRectCollide(this, player) && this.state !== "LUNGE") {
+             player.takeDamage(5, Math.sign(player.x - this.x), "contact");
+        }
+        this.x += this.vx; this.y += this.vy;
+    }
+    draw(cx, cy) {
+        let x = this.x - cx; let y = this.y - cy;
+        if (this.hp < 30) { ctx.fillStyle = "red"; ctx.fillRect(x, y - 10, (this.hp/30)*40, 5); }
+        let color = (this.state === "WINDUP") ? "yellow" : ((this.state === "LUNGE") ? "red" : "silver");
+        sketchLine(x, y+40, x+40, y+40, color);
+        sketchTri(x+5, y+40, x+35, y+40, x+20, y, color, true);
+        drawGooglyEye(x+15, y+25, 4);
+        drawGooglyEye(x+25, y+25, 4);
+    }
+}
+
+class InkShooter {
+    constructor(x, y) {
+        this.x = x; this.y = y; this.w = 30; this.h = 50; 
+        this.type = "shooter";
+        this.hp = 20;
+        this.maxCooldown = 70;
+        this.cooldown = 70;
+        this.range = 600;
+        this.projectileSpeed = 5;
+    }
+    knockback(sx) { }
+    update() {
+        let dist = Math.hypot(player.x - this.x, player.y - this.y);
+        if (dist < this.range) {
+            this.cooldown--;
+            if (this.cooldown <= 0) {
+                this.cooldown = this.maxCooldown; 
+                let angle = Math.atan2((player.y+20) - this.y, (player.x+15) - this.x);
+                projectiles.push(new Projectile(this.x + 15, this.y, Math.cos(angle)*this.projectileSpeed, Math.sin(angle)*this.projectileSpeed));
+            }
+        }
+    }
+    draw(cx, cy) {
+        let x = this.x - cx; let y = this.y - cy;
+        let shake = (this.cooldown < 20) ? (Math.random() - 0.5) * 4 : 0;
+        ctx.save();
+        ctx.translate(x + shake, y);
+        ctx.beginPath();
+        ctx.moveTo(10, 0); ctx.lineTo(20, 0); 
+        ctx.quadraticCurveTo(25, 15, 30, 30); 
+        ctx.lineTo(30, 50); ctx.lineTo(0, 50); ctx.lineTo(0, 30); 
+        ctx.quadraticCurveTo(5, 15, 10, 0); 
+        ctx.closePath();
+        ctx.save();
+        ctx.clip();
+        let fillPct = 1 - (this.cooldown / this.maxCooldown);
+        if(fillPct < 0) fillPct = 0;
+        let h = 50 * fillPct;
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 50 - h, 30, h);
+        ctx.restore(); 
+        ctx.strokeStyle = "black"; ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore(); 
+    }
+}
+
+class Blotter extends InkShooter {
+    constructor(x, y) { super(x, y); this.range = 5000; this.projectileSpeed = 8; this.hp = 20; this.maxCooldown = 45; this.cooldown = 45; }
+    update() {
+        let dist = Math.hypot(player.x - this.x, player.y - this.y);
+        if (dist < this.range) {
+            this.cooldown--;
+            if (this.cooldown <= 0) {
+                this.cooldown = this.maxCooldown; 
+                let angle = Math.atan2((player.y+20) - this.y, (player.x+15) - this.x);
+                angle += (Math.random() - 0.5) * 0.1; 
+                projectiles.push(new Projectile(this.x + 15, this.y, Math.cos(angle)*this.projectileSpeed, Math.sin(angle)*this.projectileSpeed));
+            }
+        }
+    }
+}
+
+class ScissorEnemy {
+    constructor(x, y) {
+        this.x = x; this.y = y; this.w = 50; this.h = 40;
+        this.type = "scissor";
+        this.vx = 2; this.startX = x; this.range = 150;
+    }
+    knockback(sx) {}
+    update() {
+        this.x += this.vx;
+        if (this.x > this.startX + this.range) this.vx = -2;
+        if (this.x < this.startX - this.range) this.vx = 2;
+        if (player.attackTimer === 0 && checkRectCollide(this, player)) {
+            player.takeDamage(15, Math.sign(player.x - this.x), "contact");
+        }
+    }
+    draw(cx, cy) {
+        let x = this.x - cx; let y = this.y - cy;
+        let angle = Math.sin(Date.now() / 100) * 0.5;
+        ctx.save(); ctx.translate(x + 25, y + 20); ctx.rotate(angle);
+        sketchLine(0,0, 25, -10, "silver", 4); sketchLine(0,0, -10, 5, "red", 4);
+        ctx.rotate(-angle * 2);
+        sketchLine(0,0, 25, 10, "silver", 4); sketchLine(0,0, -10, -5, "red", 4);
+        ctx.restore();
+    }
+}
+
+class Particle {
+    constructor(x, y, color, type="normal") {
+        this.x = x; this.y = y; this.color = color; this.type = type;
+        this.life = 1.0;
+        this.dx = (Math.random()-0.5)*5; this.dy = (Math.random()-0.5)*5;
+        if(this.type === "bubble") { this.dx *= 0.5; this.dy = -Math.random()*2; }
+        if(this.type === "ink") { this.dx = -2; this.dy = -Math.random()*4; }
+    }
+    update() { this.x+=this.dx; this.y+=this.dy; this.life-=0.05; }
+    draw(cx, cy) {
+        ctx.globalAlpha = this.life; ctx.fillStyle = this.color;
+        if (this.type === "bubble") { ctx.beginPath(); ctx.arc(this.x-cx, this.y-cy, 3, 0, Math.PI*2); ctx.fill(); } 
+        else { ctx.fillRect(this.x-cx, this.y-cy, 4, 4); }
+        ctx.globalAlpha = 1.0;
+    }
+}
+
+class Door {
+    constructor(x, y) { this.x = x; this.y = y; this.w = 60; this.h = 100; }
+    draw(cx, cy) {
+        let x = this.x - cx; let y = this.y - cy;
+        sketchRect(x, y, this.w, this.h, gameState.theme.accent);
+        ctx.fillStyle = "black"; ctx.globalAlpha = 0.5; ctx.fillRect(x, y, this.w, this.h); ctx.globalAlpha = 1.0;
+        sketchLine(x+50, y+50, x+52, y+52, "white", 4);
+    }
+}
+
+function checkRectCollide(r1, r2) {
+    return (r1.x < r2.x + r2.w && r1.x + r1.w > r2.x && r1.y < r2.y + r2.h && r1.y + r1.h > r2.y);
+}
+
+// --- LEVEL MANAGEMENT ---
+let platforms = [];
+let rails = []; // New separate array for rails
+let enemies = [];
+let particles = [];
+let projectiles = [];
+let items = []; 
+let levelDoor = null;
+
+function addPlat(x, y, w, h, type="normal") { 
+    platforms.push({x,y,w,h, type}); 
+}
+
+function loadLevel(levelNum) {
+    platforms = []; rails = []; enemies = []; particles = []; items = []; projectiles = [];
+    gameState.level = levelNum;
+    player.dx = 0; player.dy = 0;
+    
+    // --- ORIGINAL LEVELS 1-6 ---
+    if (levelNum === 1) { 
+        setupLevelAttributes(THEMES.PAPER, 4000, 1000);
+        player.x = 20; player.y = 750;
+        addPlat(0, 800, 50, 500); 
+        addPlat(120, 890, 10, 500); addPlat(200, 890, 10, 500); addPlat(280, 890, 10, 500); addPlat(360, 890, 10, 500);
+        addPlat(480, 920, 450, 20); 
+        addPlat(550, 820, 300, 20); addPlat(600, 720, 200, 20);
+        addPlat(630, 620, 140, 20); addPlat(650, 520, 100, 20);
+        if (!player.hasKite) items.push({x: 680, y: 470, w: 40, h: 40, type: "scroll"});
+        addPlat(1050, 1200, 200, 20);
+        addPlat(1600, 800, 200, 400); 
+        addPlat(1650, 650, 100, 20); addPlat(1550, 500, 100, 20); addPlat(1700, 350, 200, 20);
+        if (!player.isLaminated) items.push({x: 1750, y: 300, w: 40, h: 40, type: "seal"});
+        addPlat(1800, 1200, 2000, 50); 
+        addPlat(2600, 1050, 100, 20); addPlat(2750, 950, 100, 20); 
+        addPlat(2900, 900, 1000, 500); 
+        enemies.push(new ThumbtackEnemy(1900, 750)); 
+        enemies.push(new InkShooter(1750, 300)); 
+        enemies.push(new ScissorEnemy(3200, 860)); 
+        enemies.push(new ThumbtackEnemy(3400, 850));
+        enemies.push(new PiranhaEnemy(2200, 1300));
+        levelDoor = new Door(3700, 800);
+    } 
+    else if (levelNum === 2) { 
+        setupLevelAttributes(THEMES.BLUEPRINT, 3000, 2000); 
+        player.x = 50; player.y = 500;
+        addPlat(0, 600, 400, 50);
+        addPlat(500, 500, 100, 20); addPlat(700, 400, 50, 20); addPlat(900, 400, 50, 20);
+        addPlat(1100, 600, 1000, 50); 
+        enemies.push(new ThumbtackEnemy(1200, 550)); 
+        enemies.push(new InkShooter(1600, 550));
+        enemies.push(new ThumbtackEnemy(1800, 550));
+        addPlat(2200, 500, 100, 20); addPlat(2400, 400, 100, 20);
+        addPlat(2600, 400, 400, 50);
+        levelDoor = new Door(2800, 300);
+    }
+    else if (levelNum === 3) { 
+        setupLevelAttributes(THEMES.GRAPH, 2000, 1500);
+        player.x = 100; player.y = 1200;
+        addPlat(0, 1300, 500, 50);
+        addPlat(500, 1200, 100, 20); addPlat(300, 1100, 100, 20); addPlat(600, 1000, 100, 20);
+        addPlat(200, 900, 100, 20); 
+        addPlat(500, 785, 100, 20);
+        addPlat(800, 700, 100, 20);
+        addPlat(1000, 600, 1000, 50); 
+        enemies.push(new ThumbtackEnemy(1200, 550)); enemies.push(new ScissorEnemy(1400, 560)); enemies.push(new ThumbtackEnemy(1600, 550));
+        levelDoor = new Door(1800, 500);
+    }
+    else if (levelNum === 4) { 
+        setupLevelAttributes(THEMES.CARDBOARD, 4000, 1000);
+        player.x = 50; player.y = 500;
+        addPlat(0, 600, 400, 500);
+        addPlat(400, 1200, 3000, 50); 
+        addPlat(800, 1000, 50, 200); addPlat(1200, 1000, 50, 200); addPlat(1600, 1000, 50, 200);
+        enemies.push(new ThumbtackEnemy(900, 1150)); 
+        enemies.push(new InkShooter(1200, 950));
+        enemies.push(new PiranhaEnemy(1000, 1300)); enemies.push(new PiranhaEnemy(1500, 1300));
+        for(let i=0; i<6; i++) enemies.push(new PiranhaEnemy(2500 + Math.random()*300, 1300 + Math.random()*100 - 50));
+        addPlat(3400, 1000, 600, 50); 
+        enemies.push(new ScissorEnemy(3600, 960)); enemies.push(new ThumbtackEnemy(3800, 950));
+        levelDoor = new Door(3900, 900);
+    }
+    else if (levelNum === 5) { 
+        setupLevelAttributes(THEMES.NIGHT, 2500, 500); 
+        player.x = 50; player.y = 400;
+        addPlat(0, 450, 200, 50); 
+        addPlat(300, 800, 100, 20); addPlat(500, 1000, 400, 20); addPlat(800, 700, 200, 20);
+        enemies.push(new PiranhaEnemy(300, 700)); enemies.push(new PiranhaEnemy(400, 900));
+        enemies.push(new PiranhaEnemy(600, 600)); enemies.push(new PiranhaEnemy(700, 1100));
+        enemies.push(new ScissorEnemy(550, 960)); 
+        for(let i=0; i<7; i++) enemies.push(new PiranhaEnemy(1500 + Math.random()*250, 800 + Math.random()*100 - 50));
+        addPlat(1400, 600, 100, 20); addPlat(1600, 450, 100, 20); addPlat(1800, 450, 600, 50); 
+        levelDoor = new Door(2200, 350);
+    }
+    else if (levelNum === 6) { 
+        setupLevelAttributes(THEMES.PAPER, 4500, 2000);
+        player.x = 50; player.y = 200;
+        addPlat(0, 300, 400, 1700); addPlat(2200, 600, 200, 50); 
+        addPlat(4000, 400, 500, 551); addPlat(4000, 1151, 500, 850); 
+        addPlat(4100, 1151, 300, 20); 
+        let blotterSpots = [{x: 800, y: 100}, {x: 1200, y: 800}, {x: 1600, y: 200}, {x: 2800, y: 800}, {x: 3200, y: 150}];
+        addPlat(3900, 1200, 50, 10);
+        enemies.push(new Blotter(3900, 1150));
+        blotterSpots.forEach(p => { addPlat(p.x, p.y, 40, 10); enemies.push(new Blotter(p.x, p.y - 50)); });
+        levelDoor = new Door(4200, 1050);
+    }
+
+    // --- REWORKED LEVELS FOR NEW RAIL SYSTEM ---
+
+    else if (levelNum === 7) { 
+        // THE INKWAY (Twisty Rails Remastered with vectors)
+        setupLevelAttributes(THEMES.BLUEPRINT, 5000, 2000);
+        player.x = 50; player.y = 500;
+        addPlat(0, 600, 200, 50); 
+
+        // Ramped entry
+        rails.push(new Rail(200, 600, 400, 600));
+        rails.push(new Rail(400, 600, 600, 800)); // Down slope
+        rails.push(new Rail(600, 800, 900, 600)); // Up slope
+        
+        enemies.push(new InkShooter(800, 400)); 
+
+        // Flat break
+        addPlat(1000, 600, 300, 50);
+
+        // The Drop
+        rails.push(new Rail(1300, 600, 1500, 800));
+        rails.push(new Rail(1500, 800, 1700, 900));
+        rails.push(new Rail(1700, 900, 2300, 900)); // Flat long
+        
+        enemies.push(new ThumbtackEnemy(2000, 850));
+
+        // The Climb
+        rails.push(new Rail(2300, 900, 2600, 600)); 
+        rails.push(new Rail(2600, 600, 4200, 600)); // Extended so you can reach the door
+        
+        // MODIFIED: Door and Platform lowered by 100px
+        levelDoor = new Door(4500, 600); // Was 500
+        addPlat(4400, 700, 300, 50);     // Was 600
+    }
+    else if (levelNum === 8) {
+        // THE WATERCOLOR REEF (Total Redesign)
+        // Colorful, Water integrated, Rail diving.
+        setupLevelAttributes(THEMES.WATERCOLOR, 5000, 800); 
+        player.x = 50; player.y = 600;
+        
+        // Start
+        addPlat(0, 700, 200, 500);
+        
+        // Rail 1: Dive INTO the water
+        rails.push(new Rail(200, 700, 500, 900, "#ff0099"));
+        
+        // Underwater Rail Loop
+        rails.push(new Rail(500, 900, 800, 1000, "#aa00ff"));
+        rails.push(new Rail(800, 1000, 1200, 900, "#00ccff"));
+        
+        // Launch out of water
+        rails.push(new Rail(1200, 900, 1500, 500, "#ffcc00"));
+        
+        // Floating platform catch
+        addPlat(1600, 500, 200, 20);
+        enemies.push(new PiranhaEnemy(1700, 400));
+        
+        // Next Dive
+        rails.push(new Rail(1800, 500, 2100, 900, "#ff0099"));
+        
+        // Deep Underwater gauntlet
+        enemies.push(new PiranhaEnemy(2200, 950));
+        enemies.push(new PiranhaEnemy(2400, 1000));
+        enemies.push(new PiranhaEnemy(2600, 900));
+        
+        // Rail through the enemies
+        rails.push(new Rail(2100, 900, 3000, 900, "#00ccff"));
+        
+        // Exit
+        rails.push(new Rail(3000, 900, 3500, 600, "#aa00ff"));
+        addPlat(3500, 600, 800, 50);
+        
+        levelDoor = new Door(4000, 500);
+    }
+    else if (levelNum === 9) {
+        // THE MASTERPIECE (Updated with Slanted Rails)
+        setupLevelAttributes(THEMES.GRAPH, 6000, 2000);
+        player.x = 100; player.y = 1000;
+        addPlat(0, 1100, 300, 50);
+
+        // Section 1: Stairs -> Slope
+        rails.push(new Rail(300, 1100, 800, 900));
+        
+        // Section 2: Kite Gap
+        addPlat(1200, 900, 200, 20);
+        enemies.push(new InkShooter(1300, 700));
+
+        // Section 3: Zig Zag
+        rails.push(new Rail(1600, 900, 1800, 1100));
+        rails.push(new Rail(1800, 1100, 2000, 900));
+        rails.push(new Rail(2000, 900, 2200, 850));
+        
+        addPlat(2600, 850, 600, 50);
+        enemies.push(new Blotter(2900, 800));
+
+        // Final Descent
+        rails.push(new Rail(3400, 850, 4500, 1150)); // Huge long slope
+        
+        addPlat(4500, 1150, 1000, 50);
+        enemies.push(new ScissorEnemy(5000, 1100));
+
+        levelDoor = new Door(5400, 1050);
+    }
+}
+
+function setupLevelAttributes(theme, w, waterY) {
+    gameState.theme = theme;
+    gameState.worldWidth = w;
+    gameState.waterLevel = waterY;
+    document.body.style.backgroundColor = theme.bg;
+    hud.style.color = (theme.id === 'blue' || theme.id === 'card' || theme.id === 'night') ? 'white' : '#333';
+}
+
+function drawSupportBeams(cx, cy, plat) {
+    let x = plat.x - cx; let y = plat.y - cy;
+    ctx.strokeStyle = "#5e4b35"; ctx.lineWidth = 8; ctx.beginPath();
+    let beam1 = x + 10; let beam2 = x + plat.w - 10;
+    sketchLine(beam1, y + plat.h, beam1, y+1000, "#5e4b35", 8);
+    sketchLine(beam2, y + plat.h, beam2, y+1000, "#5e4b35", 8);
+    sketchLine(beam1, y + 50, beam2, y + 80, "#5e4b35", 2);
+    sketchLine(beam1, y + 80, beam2, y + 50, "#5e4b35", 2);
+}
+
+function drawPagodaRoof(cx, cy, x, y, w) {
+    let rx = x - cx; let ry = y - cy;
+    ctx.lineWidth = 4; ctx.strokeStyle = "red"; ctx.beginPath();
+    ctx.moveTo(rx - 20, ry + 10);
+    ctx.quadraticCurveTo(rx, ry, rx + w/2, ry); 
+    ctx.quadraticCurveTo(rx + w, ry, rx + w + 20, ry + 10); 
+    ctx.stroke();
+}
+
+// --- MAIN LOOP ---
+let player = new Player();
+let camera = {x:0, y:0};
+
+function triggerGameOver() {
+    if (gameState.isGameOver) return;
+    gameState.isGameOver = true;
+    gameOverScreen.style.display = "flex";
+}
+
+loadLevel(1);
+
+function loop() {
+    if (!gameState.isGameOver) {
+        player.update();
+        let tx = player.x - canvas.width/2;
+        let ty = player.y - canvas.height/2;
+        tx = Math.max(0, Math.min(tx, gameState.worldWidth - canvas.width));
+        ty = Math.max(0, Math.min(ty, gameState.worldHeight - canvas.height));
+        
+        let camSpeed = (player.form === "pen") ? 0.15 : 0.1;
+        camera.x += (tx - camera.x)*camSpeed; 
+        camera.y += (ty - camera.y)*camSpeed;
+
+        if (levelDoor && checkRectCollide(player, levelDoor)) {
+            if (gameState.level < 9) loadLevel(gameState.level + 1);
+            else alert("YOU COMPLETED THE GAME!");
+        }
+
+        for (let i = projectiles.length -1; i >= 0; i--) {
+            projectiles[i].update();
+            if(!projectiles[i].active) projectiles.splice(i,1);
+        }
+
+        for(let i=items.length-1; i>=0; i--) {
+            let item = items[i];
+            if (checkRectCollide(player, item)) {
+                if(item.type === "seal") player.isLaminated = true;
+                if(item.type === "scroll") player.hasKite = true;
+                for(let k=0; k<20; k++) particles.push(new Particle(item.x, item.y, "gold"));
+                items.splice(i, 1);
+            }
+        }
+
+        for (let i = enemies.length - 1; i >= 0; i--) {
+            enemies[i].update();
+            if (enemies[i].hp !== undefined && enemies[i].hp <= 0) {
+                for(let k=0; k<10; k++) particles.push(new Particle(enemies[i].x, enemies[i].y, "silver"));
+                enemies.splice(i, 1);
+            }
+        }
+        particles.forEach((p,i) => { p.update(); if(p.life<=0) particles.splice(i,1); });
+    }
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    ctx.fillStyle = gameState.theme.bg; ctx.fillRect(0,0,canvas.width,canvas.height);
+    
+    if (gameState.theme.id === "graph") {
+        ctx.strokeStyle = "rgba(0,100,0,0.1)"; ctx.lineWidth = 1;
+        let gx = -camera.x % 50; let gy = -camera.y % 50;
+        ctx.beginPath();
+        for(let i=gx; i<canvas.width; i+=50) { ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); }
+        for(let i=gy; i<canvas.height; i+=50) { ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); }
+        ctx.stroke();
+    }
+    
+    // Wind particles
+    if (gameState.level === 8 && !gameState.isGameOver) {
+        if(Math.random() > 0.9) {
+             let px = canvas.width; 
+             let py = Math.random() * canvas.height;
+             particles.push(new Particle(px + camera.x, py + camera.y, "rgba(255,255,255,0.5)"));
+             particles[particles.length-1].dx = -3 - Math.random()*2;
+        }
+    }
+
+    let wy = gameState.waterLevel - camera.y;
+    if (wy < canvas.height) {
+        ctx.fillStyle = gameState.theme.water; ctx.fillRect(0, wy, canvas.width, canvas.height - wy);
+        sketchLine(0, wy, canvas.width, wy, ACTIVE_COLOR);
+    }
+
+    platforms.forEach(p => { 
+        if(p.x-camera.x < canvas.width+100 && p.x+p.w-camera.x > -100) {
+            if (gameState.level === 1 && p.x >= 480 && p.x < 700 && p.y > 800) {
+                drawSupportBeams(camera.x, camera.y, p);
+            }
+            // Normal platforms
+            sketchRect(p.x-camera.x, p.y-camera.y, p.w, p.h, gameState.theme.line); 
+
+            if(gameState.level === 1 && p.x >= 480 && p.x < 700 && p.y < 1000) {
+                drawPagodaRoof(camera.x, camera.y, p.x, p.y, p.w);
+            }
+        }
+    });
+
+    // Draw Rails
+    rails.forEach(r => r.draw(camera.x, camera.y));
+
+    if(levelDoor) levelDoor.draw(camera.x, camera.y);
+    
+    items.forEach(item => {
+        let ix = item.x - camera.x; let iy = item.y - camera.y;
+        if(item.type === "seal") {
+            ctx.fillStyle = "#b22222"; 
+            ctx.beginPath(); ctx.arc(ix+20, iy+20, 15, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = "red"; ctx.lineWidth = 2; ctx.stroke();
+            ctx.fillStyle = "red"; 
+            ctx.beginPath(); ctx.moveTo(ix+20, iy+35); ctx.lineTo(ix+10, iy+50); ctx.lineTo(ix+30, iy+50); ctx.fill();
+            ctx.fillStyle = "white"; ctx.font = "bold 12px Courier"; ctx.fillText("S", ix+16, iy+24);
+        } else if (item.type === "scroll") {
+             ctx.fillStyle = "#f4e4bc"; 
+             ctx.fillRect(ix, iy+5, 40, 30);
+             ctx.strokeStyle = "#8b4513"; ctx.strokeRect(ix, iy+5, 40, 30);
+             ctx.fillStyle = "#d2b48c"; ctx.beginPath(); ctx.arc(ix, iy+20, 5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+             ctx.beginPath(); ctx.arc(ix+40, iy+20, 5, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+             ctx.fillStyle = "black"; ctx.font = "10px Courier"; ctx.fillText("KITE", ix+8, iy-5);
+        }
+    });
+
+    projectiles.forEach(p => p.draw(camera.x, camera.y));
+    enemies.forEach(e => e.draw(camera.x, camera.y));
+    player.draw(camera.x, camera.y);
+    particles.forEach(p => p.draw(camera.x, camera.y));
+
+    let moveSet = player.y > gameState.waterLevel && player.isLaminated ? "LANCE (E)" : "SPIN (E)";
+    hud.innerText = `L${gameState.level} | HP:${Math.floor(player.health)}% | ${moveSet}`;
+
+    requestAnimationFrame(loop);
+}
+
+loop();
+
+</script>
+</body>
+</html>

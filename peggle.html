@@ -1,0 +1,2231 @@
+<html lang="en"><head>
+<meta charset="UTF-8">
+<title>Peggle – Portal Edition</title>
+</head><body>patch notes
+
+<style>
+  #scorePrompt {
+  background: linear-gradient(135deg, rgba(255, 215, 0, .95), rgba(255, 237, 78, .9));
+  padding: 15px 20px;
+  border-radius: 10px;
+  margin-bottom: 15px;
+  text-align: center;
+  font-size: 18px;
+  color: #333;
+  font-weight: bold;
+  border: 2px solid rgba(255, 215, 0, .5);
+}
+  /* Add this to your existing <style> section */
+
+#leaderboard {
+  position: fixed;
+  right: -650px;
+  top: 0;
+  width: 600px;
+  height: 100vh;
+  padding: 20px;
+  background: rgba(0,0,0,.95);
+  border-left: 3px solid rgba(255,215,0,.5);
+  overflow-y: auto;
+  transition: right 0.4s ease-in-out;
+  z-index: 200;
+}
+
+#leaderboard.show {
+  right: 0;
+}
+
+#leaderboard h2 {
+  color: white;
+  text-align: center;
+  margin: 0 0 20px 0;
+}
+
+.leaderboard-entry {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(255,255,255,.95), rgba(240,240,255,.9));
+  padding: 12px 15px;
+  margin: 8px 0;
+  border-radius: 10px;
+  border: 2px solid rgba(255,255,255,.3);
+}
+
+.leaderboard-entry.top3 {
+  border-color: #ffd700;
+  box-shadow: 0 4px 15px rgba(255,215,0,.3);
+}
+
+.leaderboard-rank {
+  font-weight: bold;
+  font-size: 18px;
+  color: #7b2cbf;
+  min-width: 50px;
+}
+
+.leaderboard-name {
+  flex-grow: 1;
+  font-weight: bold;
+  color: #333;
+  margin: 0 10px;
+}
+
+.leaderboard-score {
+  font-weight: bold;
+  color: #ff6600;
+}
+
+#submitScoreForm {
+  display: flex;
+  gap: 10px;
+  margin: 20px 0;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+#submitScoreForm input {
+  padding: 10px 15px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-radius: 8px;
+  background: rgba(255,255,255,.9);
+  font-size: 14px;
+  min-width: 200px;
+}
+
+#loadingIndicator {
+  text-align: center;
+  color: white;
+  padding: 20px;
+  font-size: 16px;
+}
+
+.spinner {
+  border: 3px solid rgba(255,255,255,.3);
+  border-top: 3px solid #ffd700;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  animation: spin 1s linear infinite;
+  margin: 10px auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+html,body{
+  margin:0;padding:0;overflow:hidden;
+  background:linear-gradient(180deg,#0a0e27,#16213e,#0f3460);
+  font-family:'Arial Rounded MT Bold',Arial,sans-serif;
+}
+canvas{display:block}
+
+#ui{
+  position:fixed;top:15px;left:15px;
+  background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(240,240,255,.9));
+  padding:16px 20px;border-radius:12px;
+  font-weight:bold;font-size:16px;
+  box-shadow:0 8px 32px rgba(0,0,0,.3);
+  border:2px solid rgba(255,255,255,.3);
+  z-index:10;
+}
+#ui div{margin:4px 0}
+
+#ballsDisplay{
+  position:fixed;top:15px;right:15px;
+  background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(240,240,255,.9));
+  padding:12px;border-radius:12px;
+  display:flex;gap:8px;
+  box-shadow:0 8px 32px rgba(0,0,0,.3);
+  border:2px solid rgba(255,255,255,.3);
+  z-index:10;
+}
+.ballIcon{
+  width:18px;height:18px;border-radius:50%;
+  background:radial-gradient(circle at 30% 30%,#ff6b6b,#c92a2a);
+  box-shadow:0 2px 8px rgba(255,0,0,.4);
+  transition:all .2s;
+}
+.ballIcon.used{opacity:.15;transform:scale(.8)}
+
+#menu,#overlay{
+  position:fixed;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;
+  z-index:100;
+}
+#menu{
+  background:linear-gradient(135deg,#667eea,#764ba2,#f093fb);
+}
+#menu h1{
+  color:white;font-size:72px;margin:30px;
+  text-shadow:0 0 20px rgba(255,255,255,.5),0 0 40px rgba(255,100,255,.3);
+  animation:titleFloat 3s ease-in-out infinite;
+}
+@keyframes titleFloat{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-10px)}
+}
+#skinSelector{
+  margin-top:20px;
+  background:rgba(255,255,255,.1);
+  padding:20px;
+  border-radius:15px;
+  max-width:600px;
+}
+#skinSelector h3{
+  color:white;
+  margin:0 0 15px 0;
+  text-align:center;
+}
+#skinGrid{
+  display:grid;
+  grid-template-columns:repeat(5,1fr);
+  gap:10px;
+}
+.skin-option{
+  width:60px;
+  height:60px;
+  border-radius:50%;
+  cursor:pointer;
+  border:3px solid transparent;
+  transition:all .2s;
+  position:relative;
+}
+.skin-option:hover:not(.locked){
+  transform:scale(1.1);
+  border-color:white;
+}
+.skin-option.selected{
+  border-color:#ffd700;
+  box-shadow:0 0 20px rgba(255,215,0,.6);
+}
+.skin-option.locked{
+  opacity:.3;
+  cursor:not-allowed;
+  filter:grayscale(1);
+}
+.skin-option.locked::after{
+  content:"🔒";
+  position:absolute;
+  top:50%;
+  left:50%;
+  transform:translate(-50%,-50%);
+  font-size:24px;
+}
+
+#overlay{
+  display:none;
+  background:rgba(0,0,0,.9);
+  color:white;
+}
+
+.btn{
+  padding:18px 45px;font-size:26px;border:none;
+  border-radius:50px;cursor:pointer;
+  background:linear-gradient(135deg,#f093fb,#f5576c);
+  color:white;
+  box-shadow:0 6px 25px rgba(245,87,108,.4);
+  transition:all .2s;
+  font-weight:bold;
+  text-transform:uppercase;
+}
+.btn:hover{
+  transform:scale(1.08) translateY(-2px);
+  box-shadow:0 8px 35px rgba(245,87,108,.6);
+}
+.btn:active{transform:scale(.98)}
+
+#bucketText{
+  position:fixed;bottom:80px;left:50%;
+  transform:translateX(-50%) scale(0);
+  font-size:48px;font-weight:bold;
+  color:#ffd700;opacity:0;
+  transition:.4s;
+  text-shadow:0 0 20px rgba(255,215,0,.8),0 0 40px rgba(255,215,0,.5);
+  z-index:50;
+}
+#missMessage{
+  position:fixed;bottom:80px;left:50%;
+  transform:translateX(-50%) scale(0);
+  font-size:40px;font-weight:bold;
+  opacity:0;
+  transition:.4s;
+  text-shadow:0 0 20px rgba(0,0,0,.8);
+  z-index:50;
+  text-align:center;
+}
+
+#achievement{
+  position:fixed;top:100px;right:-400px;
+  background:linear-gradient(135deg,#ffd700,#ffed4e);
+  padding:20px 25px;border-radius:15px;
+  box-shadow:0 8px 32px rgba(0,0,0,.4);
+  border:3px solid #fff;
+  transition:right .5s cubic-bezier(.68,-.55,.265,1.55);
+  z-index:150;
+  min-width:320px;
+}
+#achievement.show{right:15px}
+#achievement h3{
+  margin:0 0 8px 0;
+  font-size:22px;
+  color:#7b2cbf;
+  text-shadow:0 2px 4px rgba(0,0,0,.2);
+}
+#achievement p{
+  margin:0;
+  font-size:16px;
+  color:#333;
+}
+
+#achievements{
+  max-width:800px;
+  margin:30px auto;
+  padding:20px;
+  background:rgba(255,255,255,.1);
+  border-radius:15px;
+  max-height:400px;
+  overflow-y:auto;
+}
+#achievements h2{
+  color:white;
+  margin:0 0 20px 0;
+  text-align:center;
+}
+.achievement-item{
+  background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(240,240,255,.9));
+  padding:15px;
+  margin:10px 0;
+  border-radius:10px;
+  display:flex;
+  align-items:center;
+  gap:15px;
+  opacity:.4;
+  border:2px solid rgba(255,255,255,.3);
+}
+.achievement-item.unlocked{
+  opacity:1;
+  border-color:#ffd700;
+  box-shadow:0 4px 15px rgba(255,215,0,.3);
+}
+.achievement-icon{
+  font-size:32px;
+  min-width:40px;
+  text-align:center;
+}
+.achievement-info h4{
+  margin:0 0 5px 0;
+  color:#7b2cbf;
+  font-size:16px;
+}
+.achievement-info p{
+  margin:0;
+  color:#666;
+  font-size:13px;
+}
+#patchnotes{
+  background-image: url(https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRkjEXMNlMhCPOJdQ62X8hg_Mv85yqXc4GvnQ&s);
+   position:fixed;top:15px;left:15px;
+  background:linear-gradient(135deg,rgba(255,255,255,.95),rgba(240,240,255,.9));
+  padding:16px 20px;border-radius:12px;
+  font-weight:bold;font-size:16px;
+  box-shadow:0 8px 32px rgba(0,0,0,.3);
+  border:2px solid rgba(255,255,255,.3);
+  z-index:10;
+}
+#storyInfo{
+  position:fixed;top:100px;left:15px;
+  background:linear-gradient(135deg,rgba(157,78,221,.95),rgba(123,44,191,.9));
+  padding:16px 20px;border-radius:12px;
+  font-weight:bold;font-size:14px;
+  box-shadow:0 8px 32px rgba(0,0,0,.3);
+  border:2px solid rgba(157,78,221,.5);
+  z-index:10;
+  display:none;
+  max-width:250px;
+  color:white;
+}
+#storyInfo h4{
+  margin:0 0 8px 0;
+  color:#ffd700;
+  font-size:16px;
+}
+#storyInfo p{
+  margin:4px 0;
+  font-size:13px;
+  line-height:1.4;
+}
+</style>
+
+
+
+
+<div id="menu" style="display: none;">
+  <h1>🎯 PEGGLE PORTAL 🎯</h1>
+  <button class="btn" onclick="startGame(false)">START GAME</button>
+  <button class="btn" onclick="startGame(true)" style="margin-top:15px;background:linear-gradient(135deg,#ff4444,#cc0000)">🔥 OG MODE</button>
+  <button class="btn" onclick="startStoryMode()" style="margin-top:15px;background:linear-gradient(135deg,#9d4edd,#7b2cbf)">📖 STORY MODE</button>
+  <button class="btn" onclick="showAchievements()" style="margin-top:15px;font-size:20px;padding:12px 35px">🏆 ACHIEVEMENTS</button>
+  <button class="btn" onclick="showSkins()" style="margin-top:15px;font-size:20px;padding:12px 35px">🎨 SKINS</button>
+  <div id="skinSelector" style="display:none">
+    <h3>🎨 SKINS</h3>
+    <div id="skinGrid"><div class="skin-option selected" title="Classic" style="background: radial-gradient(circle at 30% 30%, rgb(255, 136, 136), rgb(255, 68, 68), rgb(204, 34, 34));"></div><div class="skin-option" title="Ocean" style="background: radial-gradient(circle at 30% 30%, rgb(136, 212, 255), rgb(68, 166, 255), rgb(34, 136, 221));"></div><div class="skin-option" title="Emerald" style="background: radial-gradient(circle at 30% 30%, rgb(136, 255, 170), rgb(68, 255, 136), rgb(34, 204, 102));"></div><div class="skin-option" title="Sunset" style="background: radial-gradient(circle at 30% 30%, rgb(255, 170, 102), rgb(255, 102, 51), rgb(221, 68, 17));"></div><div class="skin-option" title="Grape" style="background: radial-gradient(circle at 30% 30%, rgb(204, 136, 255), rgb(170, 68, 255), rgb(136, 34, 221));"></div><div class="skin-option" title="Rose" style="background: radial-gradient(circle at 30% 30%, rgb(255, 136, 204), rgb(255, 68, 153), rgb(221, 34, 119));"></div><div class="skin-option" title="Midnight" style="background: radial-gradient(circle at 30% 30%, rgb(102, 136, 170), rgb(51, 68, 102), rgb(17, 34, 51));"></div><div class="skin-option" title="Lava" style="background: radial-gradient(circle at 30% 30%, rgb(255, 102, 0), rgb(204, 51, 0), rgb(153, 0, 0));"></div><div class="skin-option" title="Golden" style="background: radial-gradient(circle at 30% 30%, rgb(255, 238, 136), rgb(255, 215, 0), rgb(255, 170, 0));"></div><div class="skin-option locked" title="Rainbow - Unlock by getting Perfectionist" style="background: rgb(51, 51, 51);"></div><div class="skin-option locked" title="Nebula - " style="background: rgb(51, 51, 51);"></div></div>
+  </div>
+  <div id="achievements" style="display:none"></div>
+  <a href="notes.html"><div id="patchnotes"></div></a>
+  <button class="btn" onclick="showLeaderboard()" style="margin-top:15px;font-size:20px;padding:12px 35px">
+  🏆 LEADERBOARD
+</button>
+
+<div id="leaderboard" class="show">
+  <h2>🏆 TOP 10 SCORES 🏆</h2>
+  <div id="scorePrompt" style="display: block;">🎮 Your Score: 3,490 pts - Level 1 🎮</div>
+  <div id="submitScoreForm">
+    <input type="text" id="playerNameInput" placeholder="Your Name" maxlength="20">
+    <button class="btn" onclick="submitCurrentScore()" style="padding:10px 25px;font-size:16px">
+      Submit Score
+    </button>
+  </div>
+  <div id="loadingIndicator" style="display: none;">
+    <div class="spinner"></div>
+    <p>Loading...</p>
+  </div>
+  <div id="leaderboardList">
+        <div class="leaderboard-entry top3">
+          <span class="leaderboard-rank">🥇</span>
+          <span class="leaderboard-name">Timonster</span>
+          <span class="leaderboard-score">223,980 pts</span>
+        </div>
+      
+        <div class="leaderboard-entry top3">
+          <span class="leaderboard-rank">🥈</span>
+          <span class="leaderboard-name">The Archer</span>
+          <span class="leaderboard-score">207,630 pts</span>
+        </div>
+      
+        <div class="leaderboard-entry top3">
+          <span class="leaderboard-rank">🥉</span>
+          <span class="leaderboard-name">Archer</span>
+          <span class="leaderboard-score">205,780 pts</span>
+        </div>
+      
+        <div class="leaderboard-entry">
+          <span class="leaderboard-rank">#4</span>
+          <span class="leaderboard-name">Evren new highscore</span>
+          <span class="leaderboard-score">190,870 pts</span>
+        </div>
+      
+        <div class="leaderboard-entry">
+          <span class="leaderboard-rank">#5</span>
+          <span class="leaderboard-name">The O</span>
+          <span class="leaderboard-score">179,010 pts</span>
+        </div>
+      
+        <div class="leaderboard-entry">
+          <span class="leaderboard-rank">#6</span>
+          <span class="leaderboard-name">JONO AND ALEX</span>
+          <span class="leaderboard-score">165,750 pts</span>
+        </div>
+      
+        <div class="leaderboard-entry">
+          <span class="leaderboard-rank">#7</span>
+          <span class="leaderboard-name">ALEX AND JONO</span>
+          <span class="leaderboard-score">165,300 pts</span>
+        </div>
+      
+        <div class="leaderboard-entry">
+          <span class="leaderboard-rank">#8</span>
+          <span class="leaderboard-name">Timonster</span>
+          <span class="leaderboard-score">163,780 pts</span>
+        </div>
+      
+        <div class="leaderboard-entry">
+          <span class="leaderboard-rank">#9</span>
+          <span class="leaderboard-name">jdawg archer</span>
+          <span class="leaderboard-score">161,340 pts</span>
+        </div>
+      
+        <div class="leaderboard-entry">
+          <span class="leaderboard-rank">#10</span>
+          <span class="leaderboard-name">TacticalToucher223</span>
+          <span class="leaderboard-score">149,100 pts</span>
+        </div>
+      </div>
+</div>
+</div>
+ 
+
+
+<div id="ui">
+  <div style="color:#ff6600;font-size:18px">⭐ <span id="score">210</span></div>
+  <div style="color:#ff8800">🟠 <span id="orange">14</span> Left</div>
+  <div style="color:#4da6ff">🎯 Level <span id="level">1</span></div>
+</div>
+
+<div id="ballsDisplay"><div class="ballIcon"></div><div class="ballIcon"></div><div class="ballIcon"></div><div class="ballIcon"></div><div class="ballIcon"></div><div class="ballIcon"></div><div class="ballIcon"></div><div class="ballIcon"></div><div class="ballIcon"></div><div class="ballIcon used"></div></div>
+<div id="bucketText" style="color: rgb(255, 215, 0); opacity: 0; transform: translateX(-50%) scale(0);">FREE BALL!</div>
+<div id="missMessage" style="color: rgb(255, 102, 102); opacity: 0; transform: translateX(-50%) scale(0);">YOURE HORRIBLE</div>
+<div id="storyInfo" style="display: none;">
+  <h4 id="storyTitle">Chapter 1/10</h4>
+  <p id="storyDesc">The journey begins...</p>
+</div>
+
+<div id="achievement">
+  <h3 id="achievementTitle"></h3>
+  <p id="achievementDesc"></p>
+</div>
+
+
+
+<div id="overlay" style="display: none;">
+  <h1 id="overlayTitle">💀 GAME OVER 💀</h1>
+  <p style="font-size:32px;margin:25px">Score: <span id="finalScore">3490</span></p>
+  <button class="btn" onclick="overlayAction()">CONTINUE</button>
+</div>
+
+<canvas id="game" width="982" height="779"></canvas>
+
+<script>
+
+  const JSONBIN_CONFIG = {
+ API_KEY: '$2a$10$0gUNr5G0YVh2bsMYQEM0D.0ktdaBhf5ymxzh5ghDLQuOFvVJy/XMi', 
+  BIN_ID: '6979386dd0ea881f408b4c12'             // ← PASTE YOUR BIN ID HERE
+};
+
+let lastSubmitTime = 0;
+
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+function resize(){canvas.width=innerWidth;canvas.height=innerHeight}
+resize();
+addEventListener("resize",resize);
+
+const GRAVITY=.35,REST=.985,POWER=18;
+
+const uiScore=document.getElementById("score");
+const uiOrange=document.getElementById("orange");
+const uiLevel=document.getElementById("level");
+const ballsDisplay=document.getElementById("ballsDisplay");
+const overlay=document.getElementById("overlay");
+const overlayTitle=document.getElementById("overlayTitle");
+const finalScore=document.getElementById("finalScore");
+const bucketText=document.getElementById("bucketText");
+const achievementEl=document.getElementById("achievement");
+const missMessage=document.getElementById("missMessage");
+const achievementTitle=document.getElementById("achievementTitle");
+const achievementDesc=document.getElementById("achievementDesc");
+const menu = document.getElementById("menu");
+
+const ACHIEVEMENTS=[
+  {id:"10k", icon:"💰", name:"Big Spender", desc:"Reach 10,000 points", unlocked:false},
+  {id:"100k", icon:"👑", name:"Peggle Royalty", desc:"Reach 100,000 points (Unlocks Skin)", unlocked:false},
+  {id:"perfect", icon:"💯", name:"Perfectionist", desc:"Clear every single peg in a level (Unlocks Skin)", unlocked:false},
+  {id:"ach_2", icon:"🎯", name:"Bullseye", desc:"Hit a peg within 0.5s of firing", unlocked:false},
+  {id:"ach_5", icon:"✌️", name:"Double Tap", desc:"Hit two orange pegs in a row", unlocked:false},
+  {id:"ach_8", icon:"🌀", name:"Infinite Loop", desc:"Use portals 5 times in one shot", unlocked:false},
+  {id:"ach_9", icon:"✨", name:"Interdimensional", desc:"Hit an orange peg right after a portal", unlocked:false},
+  {id:"ach_12", icon:"🎒", name:"The Tourist", desc:"Visit both portals and the bucket in one turn", unlocked:false},
+  {id:"ach_14", icon:"🔥", name:"Pyromaniac", desc:"Clear 15 pegs with one fireball", unlocked:false},
+  {id:"ach_15", icon:"💜", name:"Chain Reaction", desc:"Purple explosion hits 5+ pegs", unlocked:false},
+  {id:"ach_16", icon:"👐", name:"Crowd Control", desc:"Catch 3 balls in one level with Big Bucket", unlocked:false},
+  {id:"ach_18", icon:"☢️", name:"Nuclear Option", desc:"Clear 30% of the board in one shot", unlocked:false},
+  {id:"ach_19", icon:"☯️", name:"Efficient Energy", desc:"Hit Green and Orange in one shot", unlocked:false},
+  {id:"ach_23", icon:"🆘", name:"Clutch", desc:"Get a Free Ball with 0 balls remaining", unlocked:false},
+  {id:"ach_26", icon:"🏃", name:"Speedrunner", desc:"Complete level in under 5 shots", unlocked:false},
+  
+  // --- FUN / SKILL ---
+  {id:"clean_start", icon:"🎯", name:"Clean Start", desc:"First peg hit is orange", unlocked:false},
+  {id:"no_miss", icon:"🧼", name:"No Miss Zone", desc:"Complete a shot hitting 5+ pegs", unlocked:false},
+  {id:"sniper", icon:"🔭", name:"Sniper", desc:"Hit a peg near the top wall", unlocked:false},
+  {id:"bank_shot", icon:"🔥", name:"The OG", desc:"Beat 3 levels in Hard Mode", unlocked:false},
+  {id:"rainbow_master", icon:"🌈", name:"Rainbow Master", desc:"Hit all 4 special peg types in one shot", unlocked:false},
+
+  // --- PORTALS ---
+  {id:"portal_lover", icon:"🌀", name:"Portal Lover", desc:"Use portals 10 times in one level", unlocked:false},
+  {id:"portal_pingpong", icon:"🏓", name:"Portal Ping-Pong", desc:"Enter same portal twice in one shot", unlocked:false},
+  {id:"portal_escape", icon:"🚪", name:"Portal Escape", desc:"Exit portal and hit bucket", unlocked:false},
+  {id:"portal_sniper", icon:"🎯", name:"Portal Sniper", desc:"Exit portal and hit orange peg", unlocked:false},
+  {id:"portal_master", icon:"🧠", name:"Portal Master", desc:"Use portals 50 times total", unlocked:false},
+
+  // --- BUCKET ---
+  {id:"double_bucket", icon:"🪣🪣", name:"Double Bucket", desc:"Catch two balls in one shot", unlocked:false},
+  {id:"bucket_save", icon:"🛟", name:"Bucket Save", desc:"Catch ball with last remaining ball", unlocked:false},
+  {id:"bucket_greedy", icon:"😈", name:"Greedy Bucket", desc:"Catch 5 balls in one level", unlocked:false},
+  {id:"bucket_dancer", icon:"💃", name:"Bucket Dancer", desc:"Catch ball at bucket edge", unlocked:false},
+
+  // --- ORANGE ---
+  {id:"orange_rush", icon:"🍊", name:"Orange Rush", desc:"Hit 5 orange pegs in one shot", unlocked:false},
+  {id:"last_orange", icon:"🧨", name:"Last Orange", desc:"Final orange peg clears the level", unlocked:false},
+  {id:"orange_streak", icon:"🔥", name:"Orange Streak", desc:"Hit orange pegs 3 shots in a row", unlocked:false},
+  {id:"orange_sweeper", icon:"🧹", name:"Orange Sweeper", desc:"Clear all oranges in a level", unlocked:false},
+  {id:"chain_lightning", icon:"⚡", name:"Chain Lightning", desc:"Hit 4 orange pegs in under 2 seconds", unlocked:false},
+
+  // --- SPECIAL PEGS ---
+  {id:"green_touch", icon:"💚", name:"Green Touch", desc:"Hit green peg first", unlocked:false},
+  {id:"purple_power", icon:"💜", name:"Purple Power", desc:"Trigger purple explosion twice in one shot", unlocked:false},
+  {id:"multi_mayhem", icon:"🔵", name:"Multi Mayhem", desc:"Multiball hits 6 pegs", unlocked:false},
+  {id:"firestorm", icon:"🔥", name:"Firestorm", desc:"Fireball hits 20 pegs", unlocked:false},
+  {id:"specialist", icon:"🎓", name:"Specialist", desc:"Use every special peg type in one level", unlocked:false},
+
+  // --- STYLE / FUN ---
+  {id:"chaos", icon:"☯️", name:"Chaos", desc:"Hit 15 pegs in one shot", unlocked:false},
+ {id:"hardcore", icon:"💀", name:"Hardcore", desc:"Reach 10,000 points in Hard Mode", unlocked:false},
+  {id:"trickshot", icon:"🎩", name:"Trick Shot", desc:"Hit peg after 3 bounces", unlocked:false},
+  {id:"speed_demon", icon:"⚡", name:"Speed Demon", desc:"Finish level in under 30 seconds", unlocked:false},
+  {id:"slow_burn", icon:"🐢", name:"Slow Burn", desc:"Finish level after 10 shots", unlocked:false},
+
+  // --- META ---
+  {id:"comeback", icon:"💀➡️😎", name:"Comeback", desc:"Win level with 1 ball remaining", unlocked:false},
+  {id:"collector", icon:"📦", name:"Collector", desc:"Unlock 20 achievements", unlocked:false},
+  {id:"marathon", icon:"🏃", name:"Marathon", desc:"Reach level 10", unlocked:false},
+  {id:"immortal", icon:"♾️", name:"Invincible", desc:"Score 250,000 points", unlocked:false},
+  {id:"story_master", icon:"📖", name:"Story Master", desc:"Complete all 10 Story Mode levels (Unlocks Skin)", unlocked:false},
+  {id:"completionist", icon:"🏆", name:"Peggle Master", desc:"Unlock all achievements", unlocked:false},
+];
+
+  
+
+
+
+let unlockedAchievements=[];
+let running=false;
+let score=0,ballsLeft=10,level=1;
+let pegs=[],balls=[],particles=[],portals=[];
+let canShoot=true;
+let hardMode=false;
+let multiballActive=false;
+let pegsHitThisTurn=0;
+let bucketExpanded=false,bucketTimer=0;
+let pegsHitThisBall=0;
+let slowmo=0,bgTime=0;
+let zoomActive=false,zoomLevel=1,zoomTargetY=0;
+let firstPegTypeThisTurn = null;
+let levelOrangeHitCount = 0;
+let levelSpecialTypesHit = new Set();
+let totalLevelPegsAtStart = 0;
+let shotOrangeCount = 0;
+ let shotGreenHit = false;
+  let shotPurpleHit = false;
+  let shotMultiballHit = false;
+  let shotFireballHit = false;
+  let portalUsesThisLevel = 0;  // ← ADD THIS LINE
+
+let shotStartTime=0;
+let lastPegType="";
+let orangeHitsThisTurn=0;
+let orangeHitTimes=[];
+let hardModeLevelsBeaten=0;
+let portalUsesThisTurn=0;
+let justExitedPortal=false;
+let bucketVisitsThisTurn=0;
+let greenHitsThisTurn=0;
+let fireballHitsThisTurn=0;
+let bigBucketCatches=0;
+let shotsThisLevel=0;
+let totalPortalUses = 0;
+let totalBucketCatches = 0;
+let orangeShotsInRow = 0;
+let specialTypesHitThisLevel=new Set();
+let bounceCount=0;
+let lastPortalEntered=null;
+let purpleExplosionsThisTurn=0;
+let multiballPegsHit=0;
+let ballsInMultiball=false;
+let levelStartTime=0;
+let totalOrangePegsThisLevel=0;
+let orangePegsHitWithoutMiss=0;
+let lastBallY=0;
+
+const BALL_SKINS = [
+  {id:"classic", name:"Classic", unlocked:true, gradient:["#ff8888","#ff4444","#cc2222"]},
+  {id:"ocean", name:"Ocean", unlocked:true, gradient:["#88d4ff","#44a6ff","#2288dd"]},
+  {id:"emerald", name:"Emerald", unlocked:true, gradient:["#88ffaa","#44ff88","#22cc66"]},
+  {id:"sunset", name:"Sunset", unlocked:true, gradient:["#ffaa66","#ff6633","#dd4411"]},
+  {id:"grape", name:"Grape", unlocked:true, gradient:["#cc88ff","#aa44ff","#8822dd"]},
+  {id:"rose", name:"Rose", unlocked:true, gradient:["#ff88cc","#ff4499","#dd2277"]},
+  {id:"midnight", name:"Midnight", unlocked:true, gradient:["#6688aa","#334466","#112233"]},
+  {id:"lava", name:"Lava", unlocked:true, gradient:["#ff6600","#cc3300","#990000"]},
+  {id:"gold", name:"Golden", unlocked:false, gradient:["#ffee88","#ffd700","#ffaa00"], unlock:"100k"},
+  {id:"rainbow", name:"Rainbow", unlocked:false, gradient:["#ff0000","#00ff00","#0000ff"], unlock:"perfect"}
+  ,{id:"nebula", name:"Nebula", unlocked:false, gradient:["#9d4edd","#7b2cbf","#5a189a"], unlock:"story_master"}
+];
+const STORY_LEVELS = [
+  {chapter: 1, title: "The Beginning", desc: "A simple start", balls: 12, orangePercent: 0.15, specialCount: 3, portalCount: 2, theme: 0},
+  {chapter: 2, title: "Portal Discovery", desc: "Portals grow stronger", balls: 11, orangePercent: 0.18, specialCount: 2, portalCount: 3, theme: 1},
+  {chapter: 3, title: "Rising Challenge", desc: "More oranges await", balls: 10, orangePercent: 0.22, specialCount: 2, portalCount: 2, theme: 2},
+  {chapter: 4, title: "The Gauntlet", desc: "Power-ups grow scarce", balls: 10, orangePercent: 0.25, specialCount: 1, portalCount: 2, theme: 3},
+  {chapter: 5, title: "Midpoint Trial", desc: "Halfway there", balls: 9, orangePercent: 0.28, specialCount: 2, portalCount: 3, theme: 0},
+  {chapter: 6, title: "Portal Mastery", desc: "Navigate the maze", balls: 9, orangePercent: 0.30, specialCount: 1, portalCount: 4, theme: 1},
+  {chapter: 7, title: "The Crucible", desc: "Few chances remain", balls: 8, orangePercent: 0.32, specialCount: 1, portalCount: 2, theme: 2},
+  {chapter: 8, title: "Desperate Measures", desc: "Every shot counts", balls: 8, orangePercent: 0.35, specialCount: 1, portalCount: 3, theme: 3},
+  {chapter: 9, title: "Final Approach", desc: "One step from victory", balls: 7, orangePercent: 0.38, specialCount: 1, portalCount: 2, theme: 0},
+  {chapter: 10, title: "Ultimate Test", desc: "Prove your mastery", balls: 7, orangePercent: 0.40, specialCount: 1, portalCount: 2, theme: 1}
+];
+
+let selectedSkin = "classic";
+let storyMode = false;
+let storyLevel = 1;
+let storyLives = 3;
+
+const field={
+  left:()=>canvas.width/2-400,
+  right:()=>canvas.width/2+400,
+  top:120
+};
+
+const bucket={x:0,w:120,vx:4};
+
+let mouse={x:0,y:0};
+canvas.addEventListener("mousemove",e=>{
+  const r=canvas.getBoundingClientRect();
+  mouse.x=e.clientX-r.left;
+  mouse.y=e.clientY-r.top;
+});
+canvas.addEventListener("click",shoot);
+
+addEventListener("keydown",e=>{
+  if(e.code==="Space"&&running&&canShoot&&!balls.length){
+    e.preventDefault();
+    zoomActive=true;
+  }
+});
+
+addEventListener("keyup",e=>{
+  if(e.code==="Space"){
+    zoomActive=false;
+  }
+});
+
+let audio;
+addEventListener("click",()=>{if(!audio)audio=new AudioContext()},{once:true});
+function beep(f,d=.06,type="sine"){
+  if(!audio)return;
+  const o=audio.createOscillator(),g=audio.createGain();
+  o.type=type;
+  o.frequency.value=f;
+  o.connect(g);
+  g.connect(audio.destination);
+  g.gain.setValueAtTime(.15,audio.currentTime);
+  g.gain.exponentialRampToValueAtTime(.01,audio.currentTime+d);
+  o.start();
+  o.stop(audio.currentTime+d);
+}
+
+let currentBgTheme = 0;
+
+function drawBackground(){
+  bgTime++;
+  const time=bgTime*.0005;
+  
+  // Hard mode uses original background
+  if(hardMode){
+    const grad=ctx.createLinearGradient(0,0,0,canvas.height);
+    grad.addColorStop(0,`hsl(${230+Math.sin(time)*10},45%,${15+Math.sin(time*2)*3}%)`);
+    grad.addColorStop(.5,`hsl(${250+Math.cos(time*.7)*10},50%,${20+Math.cos(time*1.5)*3}%)`);
+    grad.addColorStop(1,`hsl(${210+Math.sin(time*.5)*10},40%,${12+Math.sin(time)*2}%)`);
+    ctx.fillStyle=grad;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+    
+    for(let i=0;i<30;i++){
+      const x=(i*50+time*20)%canvas.width;
+      const y=100+Math.sin(time+i)*40;
+      ctx.beginPath();
+      ctx.arc(x,y,2,0,Math.PI*2);
+      ctx.fillStyle=`rgba(255,255,255,${.1+Math.sin(time*2+i)*.05})`;
+      ctx.fill();
+    }
+    return;
+  }
+  
+  // Normal mode: 5 random cool backgrounds
+  switch(currentBgTheme){
+    case 0: // Sunset Waves
+      const sunset=ctx.createLinearGradient(0,0,0,canvas.height);
+      sunset.addColorStop(0,`hsl(${15+Math.sin(time)*5},80%,${50+Math.sin(time*2)*5}%)`);
+      sunset.addColorStop(.4,`hsl(${30+Math.cos(time*.8)*8},75%,${55+Math.cos(time*1.3)*5}%)`);
+      sunset.addColorStop(.7,`hsl(${280+Math.sin(time*.6)*10},60%,${35+Math.sin(time)*5}%)`);
+      sunset.addColorStop(1,`hsl(${260+Math.cos(time*.5)*8},55%,${25+Math.cos(time*1.2)*3}%)`);
+      ctx.fillStyle=sunset;
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      for(let i=0;i<50;i++){
+        const x=(i*40+time*30)%canvas.width;
+        const y=200+Math.sin(time*2+i*.5)*60;
+        ctx.globalAlpha=.3+Math.sin(time*3+i)*.2;
+        ctx.beginPath();
+        ctx.arc(x,y,3+Math.sin(time+i)*2,0,Math.PI*2);
+        ctx.fillStyle=`hsl(${30+i*5},100%,70%)`;
+        ctx.fill();
+      }
+      ctx.globalAlpha=1;
+      break;
+      
+    case 1: // Northern Lights
+      const aurora=ctx.createLinearGradient(0,0,0,canvas.height);
+      aurora.addColorStop(0,'#0a1628');
+      aurora.addColorStop(.5,'#1a2b4a');
+      aurora.addColorStop(1,'#0f1f3a');
+      ctx.fillStyle=aurora;
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      for(let i=0;i<5;i++){
+        ctx.globalAlpha=.15+Math.sin(time*2+i)*.1;
+        const waveGrad=ctx.createLinearGradient(0,150+i*80,0,250+i*80);
+        waveGrad.addColorStop(0,`hsla(${120+i*40},100%,60%,0)`);
+        waveGrad.addColorStop(.5,`hsla(${120+i*40},100%,60%,.6)`);
+        waveGrad.addColorStop(1,`hsla(${120+i*40},100%,60%,0)`);
+        ctx.fillStyle=waveGrad;
+        ctx.fillRect(0,150+i*80+Math.sin(time+i)*30,canvas.width,100);
+      }
+      ctx.globalAlpha=1;
+      for(let i=0;i<60;i++){
+        ctx.beginPath();
+        ctx.arc(Math.random()*canvas.width,Math.random()*canvas.height,1,0,Math.PI*2);
+        ctx.fillStyle=`rgba(255,255,255,${.3+Math.random()*.4})`;
+        ctx.fill();
+      }
+      break;
+      
+   
+      
+    case 2: // Ocean Deep
+      const ocean=ctx.createRadialGradient(canvas.width/2,canvas.height/2,0,canvas.width/2,canvas.height/2,canvas.height);
+      ocean.addColorStop(0,`hsl(${190+Math.sin(time)*5},60%,${30+Math.sin(time*2)*5}%)`);
+      ocean.addColorStop(.6,`hsl(${200+Math.cos(time*.7)*8},65%,${20+Math.cos(time*1.5)*5}%)`);
+      ocean.addColorStop(1,`hsl(${210+Math.sin(time*.5)*10},70%,${10+Math.sin(time)*3}%)`);
+      ctx.fillStyle=ocean;
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      for(let i=0;i<8;i++){
+        ctx.globalAlpha=.1+Math.sin(time+i)*.05;
+        ctx.beginPath();
+        for(let x=0;x<=canvas.width;x+=10){
+          const y=200+i*80+Math.sin(x*.01+time*2+i)*30;
+          if(x===0)ctx.moveTo(x,y);
+          else ctx.lineTo(x,y);
+        }
+        ctx.lineTo(canvas.width,canvas.height);
+        ctx.lineTo(0,canvas.height);
+        ctx.closePath();
+        ctx.fillStyle=`hsla(200,70%,${40-i*3}%,.3)`;
+        ctx.fill();
+      }
+      ctx.globalAlpha=1;
+      for(let i=0;i<25;i++){
+        const x=(i*70+time*25)%canvas.width;
+        const y=150+Math.sin(time*1.5+i)*(canvas.height-200);
+        ctx.globalAlpha=.2+Math.sin(time*2+i)*.15;
+        ctx.beginPath();
+        ctx.arc(x,y,2+Math.sin(time+i),0,Math.PI*2);
+        ctx.fillStyle='#4dd0e1';
+        ctx.shadowColor='#4dd0e1';
+        ctx.shadowBlur=10;
+        ctx.fill();
+        ctx.shadowBlur=0;
+      }
+      ctx.globalAlpha=1;
+      break;
+      
+    case 3: // Nebula Dream
+      const nebula=ctx.createRadialGradient(canvas.width/2,canvas.height/3,0,canvas.width/2,canvas.height/2,canvas.height);
+      nebula.addColorStop(0,`hsl(${280+Math.sin(time)*15},70%,${40+Math.sin(time*2)*8}%)`);
+      nebula.addColorStop(.4,`hsl(${320+Math.cos(time*.8)*12},65%,${30+Math.cos(time*1.3)*6}%)`);
+      nebula.addColorStop(.7,`hsl(${200+Math.sin(time*.6)*10},60%,${25+Math.sin(time)*5}%)`);
+      nebula.addColorStop(1,'#0a0e27');
+      ctx.fillStyle=nebula;
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      for(let i=0;i<100;i++){
+        const seed=i*123.456;
+        const x=(seed*37)%canvas.width;
+        const y=(seed*73)%canvas.height;
+        const size=Math.random()*2;
+        const alpha=.2+Math.sin(time*3+i)*.3;
+        ctx.globalAlpha=alpha;
+        ctx.beginPath();
+        ctx.arc(x,y,size,0,Math.PI*2);
+        ctx.fillStyle=`hsl(${280+i*2},100%,${60+Math.sin(i)*.20})`;
+        ctx.shadowColor=ctx.fillStyle;
+        ctx.shadowBlur=15;
+        ctx.fill();
+        ctx.shadowBlur=0;
+      }
+      ctx.globalAlpha=1;
+      break;
+  }
+}
+
+// In the loop() function, find this section and REMOVE the marked line:
+portals.forEach(p=>{
+    p.pulse+=.05;
+    const pulseSize=p.r+(Math.sin(p.pulse)*3);
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,pulseSize,0,Math.PI*2);
+    const portalGrad=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,pulseSize);
+    portalGrad.addColorStop(0,"rgba(160,32,240,.3)");
+    portalGrad.addColorStop(.5,"rgba(160,32,240,.1)");
+    portalGrad.addColorStop(1,"rgba(160,32,240,0)");
+    ctx.fillStyle=portalGrad;
+    ctx.fill();
+    ctx.strokeStyle="#a020f0";
+    ctx.lineWidth=4;
+    ctx.shadowColor="#a020f0";
+    ctx.shadowBlur=20;
+    ctx.setLineDash([8,8]);
+    // portalUsesThisLevel++;  // ← REMOVE THIS LINE
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowBlur=0;
+  });
+function evaluateExtraAchievements(levelComplete=false){
+  if(pegsHitThisTurn >= 10) unlockAchievement("no_miss");
+  if(pegsHitThisTurn >= 15) unlockAchievement("chaos");
+  if(portalUsesThisTurn >= 10) unlockAchievement("portal_lover");
+  if(bucketVisitsThisTurn === 1 && pegsHitThisTurn === 0) unlockAchievement("bucket_only");
+  if(bucketVisitsThisTurn >= 2) unlockAchievement("double_bucket");
+  if(orangeHitsThisTurn >= 5) unlockAchievement("orange_rush");
+  if(multiballPegsHit >= 6) unlockAchievement("multi_mayhem");
+  if(fireballHitsThisTurn >= 20) unlockAchievement("firestorm");
+
+  if(levelComplete){
+    if(shotsThisLevel >= 10) unlockAchievement("slow_burn");
+    if(ballsLeft === 1) unlockAchievement("comeback");
+    if(level >= 10) unlockAchievement("marathon");
+    if(totalBucketCatches >= 5) unlockAchievement("bucket_greedy");
+    if(Date.now() - levelStartTime < 20000) unlockAchievement("speed_demon");
+  }
+
+  if(score >= 250000) unlockAchievement("immortal");
+
+  if(unlockedAchievements.length >= 20) unlockAchievement("collector");
+  if(unlockedAchievements.length >= 50) unlockAchievement("completionist");
+}
+
+function shoot(){
+  if(!running||!canShoot||balls.length||ballsLeft<=0)return;
+  ballsLeft--;
+  canShoot=false;
+  
+ // RESET SHOT STATS
+  shotStartTime=Date.now();
+  pegsHitThisTurn=0;
+  pegsHitThisBall=0;
+  firstPegTypeThisTurn = null;
+  portalUsesThisTurn=0;
+  orangeHitsThisTurn=0;
+  orangeHitTimes=[];
+  greenHitsThisTurn=0;
+  fireballHitsThisTurn=0;
+  bucketVisitsThisTurn=0;
+  lastPegType="";
+  justExitedPortal=false;
+  shotsThisLevel++;
+  bounceCount=0;
+  lastPortalEntered=null;
+  purpleExplosionsThisTurn=0;
+  multiballPegsHit=0;
+  lastBallY=60;
+shotOrangeCount = 0;
+shotGreenHit = false;
+shotPurpleHit = false;
+shotMultiballHit = false;
+shotFireballHit = false;
+  
+  const a=Math.atan2(mouse.y-60,mouse.x-canvas.width/2);
+  balls.push({
+    x:canvas.width/2,y:60,
+    vx:Math.cos(a)*POWER,
+    vy:Math.sin(a)*POWER,
+    r:8,trail:[],bucketed:false,
+    fireball:false,portalCooldown:0
+  });
+  
+ if(multiballActive){
+    ballsInMultiball=true;
+    for(let i=0;i<2;i++){
+      const offset=(i===0?-.15:.15);
+      balls.push({
+        x:canvas.width/2,y:60,
+        vx:Math.cos(a+offset)*POWER,
+        vy:Math.sin(a+offset)*POWER,
+        r:8,trail:[],bucketed:false,
+        fireball:false,portalCooldown:0
+      });
+    }
+    multiballActive=false;
+  }
+  
+  beep(400,.08,"square");
+  updateUI();
+
+  {
+  if(pegsHitThisTurn >= 15) unlockAchievement("chaos");
+  if(portalUsesThisTurn >= 10) unlockAchievement("portal_lover");
+  if(bucketVisitsThisTurn === 1 && pegsHitThisTurn === 0) unlockAchievement("bucket_only");
+  if(orangeHitsThisTurn >= 5) unlockAchievement("orange_rush");
+
+  if(levelComplete){
+    if(shotsThisLevel >= 10) unlockAchievement("slow_burn");
+    if(ballsLeft === 1) unlockAchievement("comeback");
+    if(specialTypesHitThisLevel.size === 0) unlockAchievement("minimalist");
+    if(level >= 10) unlockAchievement("marathon");
+  }
+
+  if(score >= 250000) unlockAchievement("immortal");
+
+  if(unlockedAchievements.length >= 20) unlockAchievement("collector");
+  if(unlockedAchievements.length >= 50) unlockAchievement("completionist");
+}
+
+}
+
+function endTurn(){
+  if(canShoot) return; // prevent double-call
+  
+  // End-of-turn achievement checks
+  if(pegsHitThisTurn >= 5) unlockAchievement("no_miss");
+  if(pegsHitThisTurn >= 10) unlockAchievement("no_miss");
+  if(pegsHitThisTurn >= 15) unlockAchievement("chaos");
+  if(portalUsesThisTurn >= 5) unlockAchievement("ach_8");
+  if(portalUsesThisTurn >= 10) unlockAchievement("portal_lover");
+  if(portalUsesThisTurn > 0 && bucketVisitsThisTurn > 0) unlockAchievement("ach_12");
+  if(orangeHitsThisTurn >= 5) unlockAchievement("orange_rush");
+  if(bucketVisitsThisTurn >= 2) unlockAchievement("double_bucket");
+  if(multiballPegsHit >= 6) unlockAchievement("multi_mayhem");
+  if(fireballHitsThisTurn >= 20) unlockAchievement("firestorm");
+  
+  const boardClearPercent = pegsHitThisTurn / totalLevelPegsAtStart;
+  if(boardClearPercent >= 0.3) unlockAchievement("ach_18");
+
+  canShoot=true;
+  const hitAllPegs=pegs.every(p=>p.hit);
+  pegs=pegs.filter(p=>!p.hit);
+  balls=[];
+
+  setTimeout(()=>{
+    // Check for level completion
+    if(!pegs.some(p=>p.type==="orange")){
+      // Track hard mode level completions
+      if(hardMode) {
+        hardModeLevelsBeaten++;
+        if(hardModeLevelsBeaten >= 3) unlockAchievement("bank_shot");
+      }
+      
+      if(shotsThisLevel <= 5) unlockAchievement("ach_26");
+      if(hitAllPegs) {
+        unlockAchievement("perfect");
+        unlockSkin("rainbow");
+      }
+
+       // Check portal lover achievement
+    if(portalUsesThisLevel >= 10) unlockAchievement("portal_lover");  // ← ADD THIS LINE
+      
+      // Check if all special peg types were used this level
+      if(levelSpecialTypesHit.has("green") && 
+         levelSpecialTypesHit.has("purple") && 
+         levelSpecialTypesHit.has("multiball") && 
+         levelSpecialTypesHit.has("fireball")) {
+        unlockAchievement("specialist");
+      }
+      
+      // Check if NO special pegs were hit
+      if(levelSpecialTypesHit.size === 0) {
+        unlockAchievement("minimalist");
+      }
+      
+      if(shotsThisLevel >= 10) unlockAchievement("slow_burn");
+      if(ballsLeft === 1) unlockAchievement("comeback");
+      if(level >= 10) unlockAchievement("marathon");
+      if(totalBucketCatches >= 5) unlockAchievement("bucket_greedy");
+      
+      const levelTime = Date.now() - levelStartTime;
+      if(levelTime < 30000) unlockAchievement("speed_demon");
+      
+      if(score >= 250000) unlockAchievement("immortal");
+      if(unlockedAchievements.length >= 20) unlockAchievement("collector");
+      if(unlockedAchievements.length >= ACHIEVEMENTS.length - 1) unlockAchievement("completionist");
+      
+      showOverlay("🎊 LEVEL COMPLETE! 🎊");
+    } else if(ballsLeft<=0){
+      showOverlay("💀 GAME OVER 💀");
+    }
+  },100);
+}
+
+function collide(b,p){
+  if(p.hit)return;
+  const dx=b.x-p.x,dy=b.y-p.y,d=Math.hypot(dx,dy);
+  if(d<b.r+p.r){
+   p.hit=true;
+    p.wobble=.7;
+    pegsHitThisTurn++;
+    if(ballsInMultiball) multiballPegsHit++;
+    p.hit=true;
+    p.wobble=.7;
+    pegsHitThisTurn++;
+    pegsHitThisBall++; // Track for this specific ball
+    if(ballsInMultiball) multiballPegsHit++;
+    // FIRST PEG HIT CHECK
+    if (firstPegTypeThisTurn === null) {
+      firstPegTypeThisTurn = p.type;
+
+      if (p.type === "orange") {
+        unlockAchievement("clean_start");
+      }
+      if (p.type === "green") {
+        unlockAchievement("green_touch");
+      }
+    }
+
+    // Track special types for the level
+    if(p.type !== "blue") {
+      levelSpecialTypesHit.add(p.type);
+    }
+    
+    // Track orange hits for the level
+    if(p.type === "orange") {
+      levelOrangeHitCount++;
+    }
+    
+    // ACH 2: BULLSEYE
+    if(Date.now() - shotStartTime < 500) unlockAchievement("ach_2");
+
+    // ACH 9: INTERDIMENSIONAL
+    if(justExitedPortal && p.type === "orange") unlockAchievement("ach_9");
+    justExitedPortal = false;
+
+    // ACH 5: DOUBLE TAP
+    if(p.type === "orange") {
+        if(lastPegType === "orange") unlockAchievement("ach_5");
+        orangeHitsThisTurn++;
+        shotOrangeCount++;
+        
+        // Track orange hit time for Chain Lightning
+        orangeHitTimes.push(Date.now());
+        
+        // Check for Chain Lightning: 4 oranges in under 2 seconds
+        if(orangeHitTimes.length >= 4) {
+          const timeDiff = orangeHitTimes[orangeHitTimes.length - 1] - orangeHitTimes[orangeHitTimes.length - 4];
+          if(timeDiff < 2000) {
+            unlockAchievement("chain_lightning");
+          }
+        }
+        
+        // Check for orange streak
+        if(orangeHitsThisTurn > 0) orangeShotsInRow++;
+        else orangeShotsInRow = 1;
+        
+        if(orangeShotsInRow >= 3) unlockAchievement("orange_streak");
+        
+        // Portal sniper
+        if(justExitedPortal) unlockAchievement("portal_sniper");
+    } else {
+        // Reset orange streak if first peg of turn is not orange
+        if(pegsHitThisTurn === 1 && p.type !== "orange") orangeShotsInRow = 0;
+    }
+    lastPegType = p.type;
+
+    // ACH 19: EFFICIENT ENERGY
+    if(p.type === "green") {
+      greenHitsThisTurn++;
+      shotGreenHit = true;
+    }
+    if(greenHitsThisTurn > 0 && orangeHitsThisTurn > 0) unlockAchievement("ach_19");
+
+    if(p.type !== "blue") specialTypesHitThisLevel.add(p.type);
+    
+    // Track for rainbow master
+    if(p.type === "purple") shotPurpleHit = true;
+    if(p.type === "multiball") shotMultiballHit = true;
+    if(p.type === "fireball") shotFireballHit = true;
+    
+    // Bank shot and trick shot
+    if(bounceCount >= 3) unlockAchievement("trickshot");
+    
+    // Sniper - hit peg near top
+    if(p.y < field.top + 80) unlockAchievement("sniper");
+    
+    const pts=p.type==="orange"?100:p.type==="green"?500:p.type==="purple"?1000:p.type==="multiball"?250:p.type==="fireball"?250:10;
+    score+=pts;
+    
+    const nx=dx/(d||1),ny=dy/(d||1);
+    const dot=b.vx*nx+b.vy*ny;
+    b.vx-=2.2*dot*nx;
+    b.vy-=2.2*dot*ny;
+    
+    const overlap=b.r+p.r-d;
+    b.x+=nx*overlap;
+    b.y+=ny*overlap;
+    
+    if(p.type==="orange")beep(900,.12,"sine");
+    else if(p.type==="green")beep(1100,.12,"triangle");
+    else if(p.type==="purple")beep(1200,.15,"sawtooth");
+    else if(p.type==="multiball")beep(800,.1,"square");
+    else if(p.type==="fireball")beep(950,.12,"triangle");
+    else beep(500,.08,"sine");
+    
+    const color=p.type==="orange"?"#ff8800":p.type==="green"?"#00ff66":p.type==="purple"?"#9d4edd":p.type==="multiball"?"#00d9ff":p.type==="fireball"?"#ff3300":"#4da6ff";
+    for(let i=0;i<25;i++){
+      particles.push({
+        x:p.x,y:p.y,
+        vx:(Math.random()-.5)*10,
+        vy:(Math.random()-.5)*10-3,
+        life:50,color,size:2+Math.random()*2
+      });
+    }
+    
+  if(p.type==="green"){
+      bucketExpanded=true;
+      bucketTimer=900;
+    }
+    
+    if(p.type==="purple"){
+      purpleExplosionsThisTurn++;
+      if(purpleExplosionsThisTurn >= 2) unlockAchievement("purple_power");
+      const nearPegs=pegs.filter(np=>!np.hit&&Math.hypot(np.x-p.x,np.y-p.y)<120);
+      // ACH 15: CHAIN REACTION
+      if(nearPegs.length >= 5) unlockAchievement("ach_15");
+      nearPegs.forEach(np=>{
+        np.hit=true;
+        pegsHitThisTurn++;
+        if(np.type !== "blue") {
+          specialTypesHitThisLevel.add(np.type);
+          levelSpecialTypesHit.add(np.type);
+        }
+        if(np.type === "orange") {
+          levelOrangeHitCount++;
+          shotOrangeCount++;
+        }
+        score+=np.type==="orange"?100:10;
+        for(let i=0;i<20;i++){
+          particles.push({
+            x:np.x,y:np.y,
+            vx:(Math.random()-.5)*8,
+            vy:(Math.random()-.5)*8-2,
+            life:45,
+            color:np.type==="orange"?"#ff8800":"#4da6ff",
+            size:2
+          });
+        }
+      });
+    }
+    
+    if(p.type==="multiball") multiballActive=true;
+    if(p.type==="fireball") b.fireball=true;
+    
+    // Check rainbow master at end of collision
+    if(shotGreenHit && shotPurpleHit && shotMultiballHit && shotFireballHit) {
+      unlockAchievement("rainbow_master");
+    }
+    
+    // Check for last orange and orange sweeper
+    const remainingOrange=pegs.filter(pg=>pg.type==="orange"&&!pg.hit).length;
+    if(p.type==="orange" && remainingOrange === 0) {
+      slowmo=120;
+      unlockAchievement("last_orange");
+      
+      // Check if we hit ALL oranges in the level
+      if(levelOrangeHitCount === totalOrangePegsThisLevel) {
+        unlockAchievement("orange_sweeper");
+      }
+    }
+    
+    
+   if(p.type==="orange"){
+      const remainingOrange=pegs.filter(pg=>pg.type==="orange"&&!pg.hit).length;
+      if(remainingOrange===0) {
+        slowmo=120;
+        unlockAchievement("last_orange");
+        
+        // Check if we hit all oranges without missing any
+        if(orangePegsHitWithoutMiss === totalOrangePegsThisLevel) {
+          unlockAchievement("orange_sweeper");
+        }
+      }
+    }
+    
+    updateUI();
+  }
+}
+
+function loop(){
+  if(!running)return;
+  const dt=slowmo>0?.25:1;
+  if(slowmo>0)slowmo--;
+  const targetZoom=zoomActive?2:1;
+  zoomLevel+=(targetZoom-zoomLevel)*.15;
+  if(zoomActive){ zoomTargetY+=(200-zoomTargetY)*.15; }else{ zoomTargetY+=(0-zoomTargetY)*.15; }
+  
+  ctx.save();
+  ctx.translate(canvas.width/2,zoomTargetY);
+  ctx.scale(zoomLevel,zoomLevel);
+  ctx.translate(-canvas.width/2,-zoomTargetY);
+  
+  drawBackground();
+
+  if(canShoot&&!balls.length){
+    let a=Math.atan2(mouse.y-60,mouse.x-canvas.width/2);
+    let px=canvas.width/2,py=60;
+    let vx=Math.cos(a)*POWER,vy=Math.sin(a)*POWER;
+    for(let i=0;i<60;i++){
+      vy+=GRAVITY;px+=vx;py+=vy;
+      vx*=REST;vy*=REST;
+      if(px<field.left()+8||px>field.right()-8)vx*=-1;
+      if(py<8)vy*=-1;
+      if(i%3===0){
+        ctx.globalAlpha=.5*(1-i/60);
+        ctx.beginPath();
+        ctx.arc(px,py,3,0,Math.PI*2);
+        ctx.fillStyle="rgba(255,255,255,.8)";
+        ctx.shadowColor="rgba(255,255,255,.5)";
+        ctx.shadowBlur=5;
+        ctx.fill();
+        ctx.shadowBlur=0;
+      }
+    }
+    ctx.globalAlpha=1;
+  }
+
+  if(!balls.length&&ballsLeft>0){
+    const a=Math.atan2(mouse.y-60,mouse.x-canvas.width/2);
+    ctx.save();
+    ctx.translate(canvas.width/2,60);
+    ctx.rotate(a);
+    const cannonGrad=ctx.createLinearGradient(0,-10,0,10);
+    cannonGrad.addColorStop(0,"#666");
+    cannonGrad.addColorStop(1,"#333");
+    ctx.fillStyle=cannonGrad;
+    ctx.fillRect(-15,-10,45,20);
+    const baseGrad=ctx.createRadialGradient(0,0,5,0,0,22);
+    baseGrad.addColorStop(0,"#888");
+    baseGrad.addColorStop(1,"#444");
+    ctx.beginPath();
+    ctx.arc(0,0,22,0,Math.PI*2);
+    ctx.fillStyle=baseGrad;
+    ctx.fill();
+    ctx.strokeStyle="#222";
+    ctx.lineWidth=2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  const wallGrad=ctx.createLinearGradient(field.left()-15,0,field.left()+5,0);
+  wallGrad.addColorStop(0,"#1a1a3e");
+  wallGrad.addColorStop(1,"#2a2a4e");
+  ctx.fillStyle=wallGrad;
+  ctx.shadowColor="rgba(0,0,0,.5)";
+  ctx.shadowBlur=15;
+  ctx.fillRect(field.left()-15,field.top,15,canvas.height);
+  ctx.fillRect(field.right(),field.top,15,canvas.height);
+  ctx.shadowBlur=0;
+
+  portals.forEach(p=>{
+    p.pulse+=.05;
+    const pulseSize=p.r+(Math.sin(p.pulse)*3);
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,pulseSize,0,Math.PI*2);
+    const portalGrad=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,pulseSize);
+    portalGrad.addColorStop(0,"rgba(160,32,240,.3)");
+    portalGrad.addColorStop(.5,"rgba(160,32,240,.1)");
+    portalGrad.addColorStop(1,"rgba(160,32,240,0)");
+    ctx.fillStyle=portalGrad;
+    ctx.fill();
+    ctx.strokeStyle="#a020f0";
+    ctx.lineWidth=4;
+    ctx.shadowColor="#a020f0";
+    ctx.shadowBlur=20;
+    ctx.setLineDash([8,8]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.shadowBlur=0;
+  });
+
+  pegs.forEach(p=>{
+    if(p.hit&&p.wobble<.05)return;
+    p.wobble*=.88;
+    p.pulse+=.05;
+    ctx.save();
+    ctx.translate(p.x,p.y);
+    ctx.rotate(p.wobble);
+    if(p.hit)ctx.globalAlpha=Math.max(.3,p.wobble*2);
+    const pulseSize=p.r+(Math.sin(p.pulse)*.5);
+    ctx.beginPath();
+    ctx.arc(0,0,pulseSize,0,Math.PI*2);
+    
+    if(p.type==="orange"){
+      ctx.shadowColor="#ff8800"; ctx.shadowBlur=15;
+      const grad=ctx.createRadialGradient(-3,-3,0,0,0,pulseSize);
+      grad.addColorStop(0,"#ffaa44"); grad.addColorStop(.5,"#ff8800"); grad.addColorStop(1,"#ff6600");
+      ctx.fillStyle=grad;
+    }else if(p.type==="green"){
+      ctx.shadowColor="#00ff66"; ctx.shadowBlur=15;
+      const grad=ctx.createRadialGradient(-3,-3,0,0,0,pulseSize);
+      grad.addColorStop(0,"#88ff88"); grad.addColorStop(.5,"#00ff66"); grad.addColorStop(1,"#00cc00");
+      ctx.fillStyle=grad;
+    }else if(p.type==="purple"){
+      ctx.shadowColor="#9d4edd"; ctx.shadowBlur=18;
+      const grad=ctx.createRadialGradient(-3,-3,0,0,0,pulseSize);
+      grad.addColorStop(0,"#e0aaff"); grad.addColorStop(.5,"#c77dff"); grad.addColorStop(1,"#7b2cbf");
+      ctx.fillStyle=grad;
+    }else if(p.type==="multiball"){
+      ctx.shadowColor="#00d9ff"; ctx.shadowBlur=15;
+      const grad=ctx.createRadialGradient(-3,-3,0,0,0,pulseSize);
+      grad.addColorStop(0,"#88e0ff"); grad.addColorStop(.5,"#00d9ff"); grad.addColorStop(1,"#0099cc");
+      ctx.fillStyle=grad;
+    }else if(p.type==="fireball"){
+      ctx.shadowColor="#ff3300"; ctx.shadowBlur=18;
+      const grad=ctx.createRadialGradient(-3,-3,0,0,0,pulseSize);
+      grad.addColorStop(0,"#ff9966"); grad.addColorStop(.5,"#ff6633"); grad.addColorStop(1,"#cc0000");
+      ctx.fillStyle=grad;
+    }else{
+      const grad=ctx.createRadialGradient(-3,-3,0,0,0,pulseSize);
+      grad.addColorStop(0,"#6db3ff"); grad.addColorStop(.5,"#4da6ff"); grad.addColorStop(1,"#1e70dd");
+      ctx.fillStyle=grad;
+    }
+    ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.globalAlpha=1;
+    ctx.restore();
+  });
+
+  particles=particles.filter(pt=>{
+    pt.life--;
+    pt.x+=pt.vx*dt;
+    pt.y+=pt.vy*dt;
+    pt.vy+=GRAVITY*.3*dt;
+    pt.vx*=.98;
+    ctx.globalAlpha=pt.life/50;
+    ctx.fillStyle=pt.color;
+    ctx.shadowColor=pt.color;
+    ctx.shadowBlur=8;
+    ctx.beginPath();
+    ctx.arc(pt.x,pt.y,pt.size,0,Math.PI*2);
+    ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.globalAlpha=1;
+    return pt.life>0;
+  });
+
+  bucket.x+=bucket.vx*dt;
+  if(bucket.x<field.left()||bucket.x>field.right()-bucket.w)bucket.vx*=-1;
+  const by=canvas.height-35;
+  if(bucketExpanded){
+    bucketTimer--;
+    if(bucketTimer<=0)bucketExpanded=false;
+  }
+  const currentBucketW=bucketExpanded?bucket.w+80:bucket.w;
+  const bucketLeft=bucketExpanded?bucket.x-40:bucket.x;
+  
+  const bucketGrad=ctx.createLinearGradient(0,by,0,by+25);
+  if(bucketExpanded){
+    bucketGrad.addColorStop(0,"#88ff88"); bucketGrad.addColorStop(1,"#00cc00");
+    ctx.shadowColor="#00ff00"; ctx.shadowBlur=25;
+  }else{
+    bucketGrad.addColorStop(0,"#66ff66"); bucketGrad.addColorStop(1,"#00aa00");
+    ctx.shadowColor="#00ff00"; ctx.shadowBlur=12;
+  }
+  ctx.fillStyle=bucketGrad;
+  ctx.fillRect(bucketLeft,by,currentBucketW,15);
+  ctx.fillRect(bucketLeft,by,10,28);
+  ctx.fillRect(bucketLeft+currentBucketW-10,by,10,28);
+  ctx.shadowBlur=0;
+
+  balls.forEach(b=>{
+    b.vy+=GRAVITY*dt;
+    b.x+=b.vx*dt;
+    b.y+=b.vy*dt;
+    b.vx*=Math.pow(REST,dt);
+    b.vy*=Math.pow(REST,dt);
+    if(b.portalCooldown>0)b.portalCooldown--;
+    b.trail.push({x:b.x,y:b.y});
+    if(b.trail.length>12)b.trail.shift();
+
+    if(b.x<field.left()+b.r){b.x=field.left()+b.r;b.vx*=-1;bounceCount++;beep(450,.04,"square");}
+    if(b.x>field.right()-b.r){b.x=field.right()-b.r;b.vx*=-1;bounceCount++;beep(450,.04,"square");}
+    if(b.y<b.r){b.y=b.r;b.vy*=-1;bounceCount++;beep(450,.04,"square");}
+
+   portals.forEach(p=>{
+      if(b.portalCooldown===0&&Math.hypot(b.x-p.x,b.y-p.y)<p.r){
+        // Portal ping-pong detection
+        if(lastPortalEntered === p) unlockAchievement("portal_pingpong");
+        lastPortalEntered = portals.find(port => port.x === p.tx && port.y === p.ty);
+        
+        b.x=p.tx; b.y=p.ty;
+        b.portalCooldown=30;
+        portalUsesThisTurn++;
+        totalPortalUses++;
+        justExitedPortal = true;
+        
+        if(totalPortalUses >= 50) unlockAchievement("portal_master");
+        
+        beep(1500,.15,"sine");
+        for(let i=0;i<15;i++){
+          particles.push({
+            x:p.tx,y:p.ty, vx:(Math.random()-.5)*8, vy:(Math.random()-.5)*8,
+            life:30, color:"#a020f0", size:3
+          });
+        }
+      }
+    });
+
+    pegs.forEach(p=>{
+      if(b.fireball){
+        const dx=b.x-p.x,dy=b.y-p.y,d=Math.hypot(dx,dy);
+        if(!p.hit&&d<50){
+          p.hit=true;
+          pegsHitThisTurn++;
+          fireballHitsThisTurn++;
+          if(fireballHitsThisTurn >= 15) unlockAchievement("ach_14");
+          if(p.type!=="blue") specialTypesHitThisLevel.add(p.type);
+          score+=p.type==="orange"?100:10;
+          for(let i=0;i<20;i++){
+            particles.push({
+              x:p.x,y:p.y, vx:(Math.random()-.5)*8, vy:(Math.random()-.5)*8-2,
+              life:45, color:"#ff3300", size:2
+            });
+          }
+          updateUI();
+        }
+      }else{ collide(b,p); }
+    });
+
+   if(!b.bucketed&&b.y>=by&&b.y<=by+30&&b.x>=bucketLeft&&b.x<=bucketLeft+currentBucketW){
+      b.bucketed=true;
+      const hadZeroBalls = (ballsLeft === 0); // Check BEFORE adding
+      ballsLeft++;
+      bucketVisitsThisTurn++;
+      totalBucketCatches++;
+      
+      // Bucket achievements
+      if(bucketExpanded) {
+          bigBucketCatches++;
+          if(bigBucketCatches >= 3) unlockAchievement("ach_16");
+      }
+      if(ballsLeft === 1) unlockAchievement("bucket_save");
+      if(hadZeroBalls) unlockAchievement("ach_23"); // Clutch - caught with 0 balls
+      if(justExitedPortal) unlockAchievement("portal_escape");
+      
+      // Bucket edge detection (within 10px of edge)
+      if(b.x <= bucketLeft + 10 || b.x >= bucketLeft + currentBucketW - 10) {
+        unlockAchievement("bucket_dancer");
+      }
+      
+      beep(1400,.2,"sine");
+      bucketText.textContent="FREE BALL!";
+      bucketText.style.color="#ffd700";
+      bucketText.style.opacity=1;
+      bucketText.style.transform="translateX(-50%) scale(1.2)";
+      setTimeout(()=>{
+        bucketText.style.opacity=0;
+        bucketText.style.transform="translateX(-50%) scale(0)";
+      },700);
+      updateUI();
+    }
+
+    // Draw ball trail with skin
+    b.trail.forEach((t,i)=>{
+      ctx.globalAlpha=(i+1)/b.trail.length*.6;
+      ctx.beginPath(); 
+      ctx.arc(t.x,t.y,b.r,0,Math.PI*2);
+      const skin = BALL_SKINS.find(s => s.id === selectedSkin) || BALL_SKINS[0];
+      const trailGrad = ctx.createRadialGradient(t.x-3,t.y-3,0,t.x,t.y,b.r);
+      trailGrad.addColorStop(0, b.fireball ? "#ffaa66" : skin.gradient[0]);
+      trailGrad.addColorStop(.5, b.fireball ? "#ff6633" : skin.gradient[1]);
+      trailGrad.addColorStop(1, b.fireball ? "#ff0000" : skin.gradient[2]);
+      ctx.fillStyle=trailGrad;
+      ctx.shadowColor=b.fireball?"#ff3300":skin.gradient[2];
+      ctx.shadowBlur=10; 
+      ctx.fill(); 
+      ctx.shadowBlur=0;
+    });
+    
+    ctx.globalAlpha=1;
+    if(b.fireball){ ctx.shadowColor="#ff3300"; ctx.shadowBlur=25; }
+    
+    // Draw main ball with skin
+    const skin = BALL_SKINS.find(s => s.id === selectedSkin) || BALL_SKINS[0];
+    const grad=ctx.createRadialGradient(b.x-3,b.y-3,0,b.x,b.y,b.r);
+    
+    // Rainbow skin animation
+    if(selectedSkin === "rainbow" && !b.fireball){
+      const t = Date.now() * 0.003;
+      const r = Math.floor(127 * Math.sin(t) + 128);
+      const g = Math.floor(127 * Math.sin(t + 2) + 128);
+      const bl = Math.floor(127 * Math.sin(t + 4) + 128);
+      grad.addColorStop(0,`rgb(${Math.min(255,r+50)},${Math.min(255,g+50)},${Math.min(255,bl+50)})`);
+      grad.addColorStop(.5,`rgb(${r},${g},${bl})`);
+      grad.addColorStop(1,`rgb(${Math.max(0,r-50)},${Math.max(0,g-50)},${Math.max(0,bl-50)})`);
+    } else {
+      grad.addColorStop(0,b.fireball?"#ffaa66":skin.gradient[0]);
+      grad.addColorStop(.5,b.fireball?"#ff6633":skin.gradient[1]);
+      grad.addColorStop(1,b.fireball?"#ff0000":skin.gradient[2]);
+    }
+    
+    ctx.beginPath(); 
+    ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+    ctx.fillStyle=grad; 
+    ctx.fill(); 
+    ctx.shadowBlur=0;
+  });
+
+ // Remove balls that are finished and check for mercy ball
+  const finishedBalls = balls.filter(b => b.y > canvas.height + 50 && !b.bucketed);
+  
+  finishedBalls.forEach(b => {
+    // Check if ball didn't hit ANY pegs and give 50/50 chance for ball back
+    if(pegsHitThisBall === 0 && Math.random() < 0.5) {
+      ballsLeft++;
+      
+      const funMessages = [
+        "WOWZA",
+        "SECOND CHANCE!",
+        "MERCY BALL!",
+        "OOPS! HERE YOU GO!",
+        "FEELING GENEROUS!",
+        "ONE MORE TRY!",
+        "CITY BOI!!!",
+        "THATS CRIMINAL",
+        "W PEGGLE",
+        "PEG LORD"
+      ];
+      
+      const randomMsg = funMessages[Math.floor(Math.random() * funMessages.length)];
+      
+      missMessage.textContent = randomMsg;
+      missMessage.style.color = "#00ff88";
+      missMessage.style.opacity = 1;
+      missMessage.style.transform = "translateX(-50%) scale(1.2)";
+      
+      beep(1200, .2, "sine");
+      
+      setTimeout(() => {
+        missMessage.style.opacity = 0;
+        missMessage.style.transform = "translateX(-50%) scale(0)";
+      }, 1500);
+      
+      updateUI();
+    } else if(pegsHitThisBall === 0) {
+      // Missed and didn't get lucky
+      const sadMessages = [
+        "NOPE!",
+        "YOU SUCK",
+        "GIVE UP",
+        "YOURE HORRIBLE",
+        "Maybe try snake?",
+        "SO CLOSE"
+      ];
+      
+      const randomSad = sadMessages[Math.floor(Math.random() * sadMessages.length)];
+      
+      missMessage.textContent = randomSad;
+      missMessage.style.color = "#ff6666";
+      missMessage.style.opacity = 1;
+      missMessage.style.transform = "translateX(-50%) scale(1.2)";
+      
+      setTimeout(() => {
+        missMessage.style.opacity = 0;
+        missMessage.style.transform = "translateX(-50%) scale(0)";
+      }, 1200);
+    }
+    
+    // Reset for next ball
+    pegsHitThisBall = 0;
+  });
+  
+  balls = balls.filter(b => !b.bucketed && b.y <= canvas.height + 50);
+
+  // End turn when all balls are gone
+  if (balls.length === 0 && !canShoot) {
+    endTurn();
+  }
+
+  ctx.restore();
+  requestAnimationFrame(loop);
+}
+
+function updateUI(){
+  uiScore.textContent=Math.floor(score);
+  uiOrange.textContent=pegs.filter(p=>p.type==="orange"&&!p.hit).length;
+  uiLevel.textContent=level;
+  ballsDisplay.innerHTML="";
+  for(let i=0;i<10;i++){
+    const d=document.createElement("div");
+    d.className="ballIcon"+(i>=ballsLeft?" used":"");
+    ballsDisplay.appendChild(d);
+  }
+  if(score>=10000)unlockAchievement("10k");
+  if(hardMode && score >= 10000) unlockAchievement("hardcore");
+  if(score>=100000){
+    unlockAchievement("100k");
+    unlockSkin("gold");
+  }
+}
+
+function unlockSkin(skinId){
+  const skin = BALL_SKINS.find(s => s.id === skinId);
+  if(skin && !skin.unlocked){
+    skin.unlocked = true;
+    try{ 
+      const savedSkins = JSON.parse(localStorage.getItem("peggle-skins") || "[]");
+      if(!savedSkins.includes(skinId)){
+        savedSkins.push(skinId);
+        localStorage.setItem("peggle-skins", JSON.stringify(savedSkins));
+      }
+    }catch(e){}
+    
+    if(skinId === "nebula"){
+      selectedSkin = "nebula";
+      try{ localStorage.setItem("peggle-selected-skin", "nebula"); }catch(e){}
+    }
+    
+    renderSkinSelector();
+  }
+}
+async function loadLeaderboard() {
+  const listDiv = document.getElementById('leaderboardList');
+  const loadingDiv = document.getElementById('loadingIndicator');
+  
+  loadingDiv.style.display = 'block';
+  listDiv.innerHTML = '';
+  
+  try {
+    const response = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.BIN_ID}/latest`, {
+      method: 'GET',
+      headers: { 'X-Master-Key': JSONBIN_CONFIG.API_KEY }
+    });
+    
+    const data = await response.json();
+    const scores = data.record.scores || [];
+    
+    loadingDiv.style.display = 'none';
+    
+    if (scores.length === 0) {
+      listDiv.innerHTML = '<p style="color:white;text-align:center;">No scores yet! Be the first! 🎯</p>';
+      return;
+    }
+    
+    scores.sort((a, b) => b.score - a.score);
+    const top10 = scores.slice(0, 10);  // ← FIXED
+    
+    listDiv.innerHTML = top10.map((entry, index) => {  // ← FIXED
+      const rank = index + 1;
+      const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+      
+      return `
+        <div class="leaderboard-entry${rank <= 3 ? ' top3' : ''}">
+          <span class="leaderboard-rank">${medal}</span>
+          <span class="leaderboard-name">${escapeHtml(entry.name)}</span>
+          <span class="leaderboard-score">${entry.score.toLocaleString()} pts</span>
+        </div>
+      `;
+    }).join('');
+    
+  } catch (error) {
+    loadingDiv.style.display = 'none';
+    listDiv.innerHTML = '<p style="color:#ff6666;">Error loading leaderboard</p>';
+    console.error('Leaderboard error:', error);  // ← ADDED for debugging
+  }
+}
+
+async function submitCurrentScore() {
+  const nameInput = document.getElementById('playerNameInput');
+  const name = nameInput.value.trim();
+  
+  if (!name) {
+    alert('Please enter your name!');
+    nameInput.focus();
+    return;
+  }
+  
+  // Rate limit - once per minute
+  const now = Date.now();
+  if (now - lastSubmitTime < 60000) {
+    const waitTime = Math.ceil((60000 - (now - lastSubmitTime)) / 1000);
+    alert(`Please wait ${waitTime} seconds before submitting again!`);
+    return;
+  }
+  
+  const loadingDiv = document.getElementById('loadingIndicator');
+  loadingDiv.style.display = 'block';
+  
+  try {
+    // Get current scores
+    const getResponse = await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.BIN_ID}/latest`, {
+      headers: { 'X-Master-Key': JSONBIN_CONFIG.API_KEY }
+    });
+    
+    const data = await getResponse.json();
+    let scores = data.record.scores || [];
+    
+    // Remove duplicates with same name AND score
+    const newScore = {
+      name: name.substring(0, 20),
+      score: score,
+      level: level,
+      timestamp: now,
+      date: new Date().toISOString()
+    };
+    
+    // Filter out any existing entries with same name and score
+    scores = scores.filter(entry => 
+      !(entry.name === newScore.name && entry.score === newScore.score)
+    );
+    
+    // Add new score
+    scores.push(newScore);
+    
+    // Keep top 100
+    scores.sort((a, b) => b.score - a.score);
+    const top100 = scores.slice(0, 100);
+    
+    // Update
+    await fetch(`https://api.jsonbin.io/v3/b/${JSONBIN_CONFIG.BIN_ID}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': JSONBIN_CONFIG.API_KEY
+      },
+      body: JSON.stringify({ scores: top100 })
+    });
+    
+    lastSubmitTime = now;
+    loadingDiv.style.display = 'none';
+    
+    alert(`🎉 Score submitted! ${score.toLocaleString()} points`);
+    nameInput.value = '';
+    document.getElementById('scorePrompt').style.display = 'none';
+
+    await loadLeaderboard();
+    
+  } catch (error) {
+    loadingDiv.style.display = 'none';
+    alert('Error submitting score: ' + error.message);
+    console.error('Submit error:', error);
+  }
+}
+
+
+function showLeaderboard(fromGameOver = false) {
+  const leaderboardDiv = document.getElementById("leaderboard");
+  const achievementsDiv = document.getElementById("achievements");
+  const skinDiv = document.getElementById("skinSelector");
+  const scorePrompt = document.getElementById("scorePrompt");
+
+  achievementsDiv.style.display = "none";
+  skinDiv.style.display = "none";
+
+  if (leaderboardDiv.classList.contains("show") && !fromGameOver) {
+    leaderboardDiv.classList.remove("show");
+    scorePrompt.style.display = "none";
+    return;
+  }
+
+  leaderboardDiv.classList.add("show");
+  
+  // Show score prompt if coming from game over
+  if (fromGameOver) {
+    scorePrompt.textContent = `🎮 Your Score: ${Math.floor(score).toLocaleString()} pts - Level ${level} 🎮`;
+    scorePrompt.style.display = "block";
+  } else {
+    scorePrompt.style.display = "none";
+  }
+  
+  loadLeaderboard();
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function showOverlay(title){
+  running=false;
+  score+=ballsLeft*1000;
+  overlayTitle.textContent=title;
+  finalScore.textContent=Math.floor(score);
+  overlay.style.display="flex";
+  if(title.includes("COMPLETE")){ beep(1500,.3,"triangle"); }
+}
+function overlayAction(){
+  overlay.style.display="none";
+  
+  if(overlayTitle.textContent.includes("COMPLETE")){
+    // Your existing level complete code stays the same
+    if(storyMode){
+      storyLevel++;
+      if(storyLevel > 10){
+        unlockAchievement("story_master");
+        unlockSkin("nebula");
+        menu.style.display="flex";
+        storyMode=false;
+        storyLevel=1;
+        document.getElementById("storyInfo").style.display="none";
+        return;
+      }
+      level++;
+      ballsLeft = STORY_LEVELS[storyLevel - 1].balls;
+    } else {
+      level++;
+      ballsLeft = hardMode ? Math.min(ballsLeft + 3, 10) : 10;
+    }
+    running=true; 
+    canShoot=true; 
+    generateLevel(); 
+    loop();
+    
+} else {
+    // GAME OVER
+    hardModeLevelsBeaten = 0;
+    
+    if(storyMode){
+      storyLives--; // Lose a life
+      
+      if(storyLives <= 0) {
+        // All lives lost - reset story mode
+        storyMode = false;
+        storyLevel = 1;
+        storyLives = 3;
+        document.getElementById("storyInfo").style.display = "none";
+        
+        // Show menu and leaderboard
+        menu.style.display = "flex";
+        showLeaderboard(true);
+        
+        setTimeout(() => {
+          const nameInput = document.getElementById('playerNameInput');
+          nameInput.focus();
+          nameInput.select();
+        }, 200);
+      } else {
+        // Still have lives - retry current level
+        score = 0;
+        level = storyLevel;
+        ballsLeft = STORY_LEVELS[storyLevel - 1].balls;
+        running = true;
+        canShoot = true;
+        generateLevel();
+        loop();
+      }
+    } else {
+      // Normal/Hard mode game over
+      menu.style.display = "flex";
+      showLeaderboard(true);
+      
+      setTimeout(() => {
+        const nameInput = document.getElementById('playerNameInput');
+        nameInput.focus();
+        nameInput.select();
+      }, 200);
+    }
+  }
+}
+function renderSkinSelector(){
+  const grid = document.getElementById("skinGrid");
+  grid.innerHTML = "";
+  
+  BALL_SKINS.forEach(skin => {
+    const div = document.createElement("div");
+    div.className = "skin-option" + 
+      (skin.unlocked ? "" : " locked") +
+      (selectedSkin === skin.id ? " selected" : "");
+    
+    if(skin.unlocked){
+      const grad = `radial-gradient(circle at 30% 30%, ${skin.gradient[0]}, ${skin.gradient[1]}, ${skin.gradient[2]})`;
+      div.style.background = grad;
+      div.title = skin.name;
+      
+      div.onclick = () => {
+        selectedSkin = skin.id;
+        try{ localStorage.setItem("peggle-selected-skin", skin.id); }catch(e){}
+        renderSkinSelector();
+      };
+    } else {
+      div.style.background = "#333";
+      const unlockText = skin.unlock === "100k" ? "Unlock at 100k points" : 
+                        skin.unlock === "perfect" ? "Unlock by getting Perfectionist" : "";
+      div.title = `${skin.name} - ${unlockText}`;
+    }
+    
+    grid.appendChild(div);
+  });
+}
+
+function startGame(isHardMode = false){
+  menu.style.display="none";
+  hardMode = isHardMode;
+  storyMode = false;
+  storyLevel = 1;
+  hardModeLevelsBeaten = 0;
+  document.getElementById("storyInfo").style.display="none";
+  score=0; ballsLeft=10; level=1; running=true; generateLevel(); loop();
+}
+function generateLevel(){
+  // Story mode uses specific themes
+  if(storyMode && storyLevel <= 10) {
+    const config = STORY_LEVELS[storyLevel - 1];
+    currentBgTheme = config.theme;
+    document.getElementById("storyInfo").style.display = "block";
+    document.getElementById("storyTitle").textContent = `Chapter ${config.chapter}/10 | Lives: ${"❤️".repeat(storyLives)}`;
+    document.getElementById("storyDesc").textContent = config.desc;
+  } else {
+    currentBgTheme = Math.floor(Math.random() * 4);
+    document.getElementById("storyInfo").style.display = "none";
+  }
+  
+  pegs=[];
+  balls=[];
+  particles=[];
+  bucket.x=field.left();
+  multiballActive=false;
+  slowmo=0;
+  specialTypesHitThisLevel.clear();
+  shotsThisLevel=0;
+  bigBucketCatches=0;
+  totalBucketCatches=0;
+  portalUsesThisLevel=0;
+  levelStartTime=Date.now();
+  totalOrangePegsThisLevel=0;
+  orangePegsHitWithoutMiss=0;
+  
+  const padding=80;
+  const spawnPortal=()=>({
+    x:field.left()+padding+Math.random()*(800-padding*2),
+    y:field.top+100+Math.random()*(canvas.height-field.top-300),
+    r:28
+  });
+
+  // Determine portal count
+  let portalPairs = 1;
+  if(storyMode && storyLevel <= 10) {
+    portalPairs = Math.floor(STORY_LEVELS[storyLevel - 1].portalCount / 2);
+  }
+
+  portals = [];
+  for(let pair = 0; pair < portalPairs; pair++) {
+    const p1 = spawnPortal();
+    const p2 = spawnPortal();
+    
+    while(Math.hypot(p1.x-p2.x,p1.y-p2.y)<200){
+      p2.x=field.left()+padding+Math.random()*(800-padding*2);
+      p2.y=field.top+100+Math.random()*(canvas.height-field.top-300);
+    }
+    
+    portals.push(
+      {x:p1.x,y:p1.y,tx:p2.x,ty:p2.y,r:p1.r,pulse:pair*Math.PI/2},
+      {x:p2.x,y:p2.y,tx:p1.x,ty:p1.y,r:p2.r,pulse:(pair+1)*Math.PI/2}
+    );
+  }
+  
+  if(portals.length === 0) {
+    const p1=spawnPortal();
+    const p2=spawnPortal();
+    while(Math.hypot(p1.x-p2.x,p1.y-p2.y)<200){
+      p2.x=field.left()+padding+Math.random()*(800-padding*2);
+      p2.y=field.top+100+Math.random()*(canvas.height-field.top-300);
+    }
+    portals=[
+      {x:p1.x,y:p1.y,tx:p2.x,ty:p2.y,r:p1.r,pulse:0},
+      {x:p2.x,y:p2.y,tx:p1.x,ty:p1.y,r:p2.r,pulse:Math.PI}
+    ];
+  }
+  
+  for(let r=0;r<9;r++){
+    for(let c=0;c<10;c++){
+      if(Math.random()<.1)continue;
+      
+      const px=field.left()+80+c*75+(r%2)*37;
+      const py=field.top+r*60;
+      const nearPortal=portals.some(port=>Math.hypot(px-port.x,py-port.y)<50);
+      
+      if(!nearPortal){
+        pegs.push({
+          x:px,y:py,r:9,
+          hit:false,type:"blue",wobble:0,
+          pulse:Math.random()*Math.PI*2
+        });
+      }
+    }
+  }
+  
+  shuffle(pegs);
+  
+  // Determine orange percentage
+  let orangePercent = 0.2;
+  if(storyMode && storyLevel <= 10) {
+    orangePercent = STORY_LEVELS[storyLevel - 1].orangePercent;
+  }
+  
+  pegs.slice(0,Math.floor(pegs.length * orangePercent)).forEach(p=>p.type="orange");
+  
+  const specialPegs=pegs.filter(p=>p.type==="blue");
+  shuffle(specialPegs);
+  
+  // Determine special count
+  let specialCount = 2;
+  if(hardMode) {
+    specialCount = 1;
+  } else if(storyMode && storyLevel <= 10) {
+    specialCount = STORY_LEVELS[storyLevel - 1].specialCount;
+  }
+  specialPegs.slice(0,specialCount).forEach(p=>p.type="green");
+  specialPegs.slice(specialCount,specialCount*2).forEach(p=>p.type="purple");
+  specialPegs.slice(specialCount*2,specialCount*3).forEach(p=>p.type="multiball");
+  specialPegs.slice(specialCount*3,specialCount*4).forEach(p=>p.type="fireball");
+  
+  totalOrangePegsThisLevel = pegs.filter(p => p.type === "orange").length;
+  totalLevelPegsAtStart = pegs.length;
+  levelOrangeHitCount = 0;
+  levelSpecialTypesHit.clear();
+  
+  updateUI();
+}
+function startStoryMode(){
+  menu.style.display="none";
+  hardMode = false;
+  storyMode = true;
+  storyLevel = 1;
+  storyLives = 3; // Reset lives when starting story mode
+  hardModeLevelsBeaten = 0;
+  score = 0;
+  level = 1;
+  ballsLeft = STORY_LEVELS[0].balls;
+  running = true;
+  generateLevel();
+  loop();
+}
+
+function unlockAchievement(id){
+  const ach=ACHIEVEMENTS.find(a=>a.id===id);
+  if(!ach||ach.unlocked)return;
+  ach.unlocked=true;
+  unlockedAchievements.push(id);
+  try{ localStorage.setItem("peggle-achievements",JSON.stringify(unlockedAchievements)); }catch(e){}
+  achievementTitle.textContent=ach.icon+" "+ach.name;
+  achievementDesc.textContent=ach.desc;
+  achievementEl.classList.add("show");
+  beep(1600,.3,"triangle");
+  setTimeout(()=>{ achievementEl.classList.remove("show"); },3500);
+}
+
+function showAchievements(){
+  const achDiv = document.getElementById("achievements");
+  const skinDiv = document.getElementById("skinSelector");
+
+  if (achDiv.style.display === "block") {
+    achDiv.style.display = "none";
+    return;
+  }
+
+  // Hide skins when showing achievements
+  skinDiv.style.display = "none";
+
+  const unlockedCount = ACHIEVEMENTS.filter(a => a.unlocked).length;
+  const totalCount = ACHIEVEMENTS.length;
+
+  achDiv.innerHTML = `
+    <h2>🏆 ACHIEVEMENTS 🏆</h2>
+    <div style="
+      text-align:center;
+      margin-bottom:15px;
+      font-size:18px;
+      color:#ffd700;
+      font-weight:bold;
+    ">
+      Unlocked: ${unlockedCount} / ${totalCount}
+    </div>
+  `;
+
+  ACHIEVEMENTS.forEach(a=>{
+    const item = document.createElement("div");
+    item.className = "achievement-item" + (a.unlocked ? " unlocked" : "");
+    item.innerHTML = `
+      <div class="achievement-icon">${a.unlocked ? a.icon : "🔒"}</div>
+      <div class="achievement-info">
+        <h4>${a.name}</h4>
+        <p>${a.desc}</p>
+      </div>
+    `;
+    achDiv.appendChild(item);
+  });
+
+  achDiv.style.display = "block";
+}
+
+function showSkins(){
+  const skinDiv = document.getElementById("skinSelector");
+  const achDiv = document.getElementById("achievements");
+
+  if (skinDiv.style.display === "block") {
+    skinDiv.style.display = "none";
+    return;
+  }
+
+  // Hide achievements when showing skins
+  achDiv.style.display = "none";
+
+  skinDiv.style.display = "block";
+}
+// Save story progress
+function saveStoryProgress() {
+  if(storyMode) {
+    try {
+      localStorage.setItem("peggle-story-level", storyLevel);
+      localStorage.setItem("peggle-story-lives", storyLives);
+    } catch(e) {}
+  }
+}
+
+// Load story progress
+function loadStoryProgress() {
+  try {
+    const savedLevel = localStorage.getItem("peggle-story-level");
+    const savedLives = localStorage.getItem("peggle-story-lives");
+    if(savedLevel && savedLives) {
+      storyLevel = parseInt(savedLevel);
+      storyLives = parseInt(savedLives);
+    }
+  } catch(e) {}
+}
+
+function shuffle(a){
+  for(let i=a.length-1;i>0;i--){
+    const j=Math.random()*(i+1)|0;
+    [a[i],a[j]]=[a[j],a[i]];
+  }
+}
+
+
+try{
+  const saved=localStorage.getItem("peggle-achievements");
+  if(saved){
+    const ids=JSON.parse(saved);
+    ACHIEVEMENTS.forEach(a=>{if(ids.includes(a.id))a.unlocked=true});
+    unlockedAchievements=ids;
+    if (document.getElementById("achievements").style.display === "block") {
+      showAchievements();
+    }
+  }
+  
+  const savedSkins = localStorage.getItem("peggle-skins");
+  if(savedSkins){
+    const skinIds = JSON.parse(savedSkins);
+    BALL_SKINS.forEach(s => {
+      if(skinIds.includes(s.id)) s.unlocked = true;
+    });
+  }
+  
+  const savedSelectedSkin = localStorage.getItem("peggle-selected-skin");
+  if(savedSelectedSkin){
+    selectedSkin = savedSelectedSkin;
+  }
+  
+  renderSkinSelector();
+}catch(e){}
+// Allow Enter key to submit score
+document.getElementById('playerNameInput').addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    submitCurrentScore();
+  }
+});
+</script>
+
+</body></html>
