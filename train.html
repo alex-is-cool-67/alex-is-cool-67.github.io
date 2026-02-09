@@ -49,28 +49,43 @@
 	<button id="remove-person">remove last person</button>
 
 	<div id="train">
-		<div class="cart">Alex</div>
+		<!-- <div class="cart">Alex</div>
 		<div class="cart">Balut</div>
 		<div class="cart">Quokka</div>
 		<div class="cart">Leon Bridges</div>
-		<div class="cart">Lightning McQueen</div>
+		<div class="cart">Lightning McQueen</div> -->
 
 	</div>
-
+	
 
 	
 	<script>
-		let people = ["Alex", "quokka", "Leon Bridges"]
-		people.push("balut")
-		people.push("Lightning McQueen")
-		people.pop()
-		console.log(people)
+		let people = ["Alex", "Quokka", "Leon Bridges", "Balut", "Lightning McQueen"]
+		let train = document.getElementById("train")
+		
+		function makeTrain() {
+			train.innerHTML = ""
+			for(let i = 0; i < people.length; i++){
+			console.log(people[i])
+			let cart=document.createElement("div")
+			cart.textContent = people[i]
+			cart.classList.add("cart")
+			train.appendChild(cart)
+		}
+	}
+		makeTrain()
+		// people.push("balut")
+		// people.push("Lightning McQueen")
+		// people.pop()
+		// console.log(people)
 
 		let addPersonBtn = document.getElementById("add-person")
 		addPersonBtn.addEventListener("click", function(){
 			let personInput = document.getElementById("person")
 			console.log(personInput.value)
 			people.push(personInput.value)
+			makeTrain()
+			personInput.value = ""
 			console.log(people)
 
 		})
@@ -79,6 +94,7 @@
 			let personInput = document.getElementById("person")
 			console.log(personInput.value)
 			people.pop(personInput.value)
+			makeTrain()
 			console.log(people)
 		})
 </script>
