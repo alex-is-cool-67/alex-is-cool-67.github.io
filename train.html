@@ -45,6 +45,7 @@
 <body>
 
 	<input type="text" id="person">
+	<input type="color" value="#ff0000" id="colorPicker">
 	<button id="add-person">add person</button>
 	<button id="remove-person">remove last person</button>
 
@@ -60,7 +61,23 @@
 
 	
 	<script>
-		let people = ["Alex", "Quokka", "Leon Bridges", "Balut", "Lightning McQueen"]
+		let alex = {
+			name: "alex",
+			studentId: "c29al",
+			fav_color: "blue"
+		}
+
+		let quokka = {
+			name: "quokka",
+			looks: "cute",
+			emotion: "happy",
+			catchphrase: "QUOKKA",
+			fav_color: "red",
+		}
+
+		// let people = ["Alex", "Quokka", "Leon Bridges", "Balut", "Lightning McQueen"]
+		let people = [alex, quokka]
+
 		let train = document.getElementById("train")
 		
 		function makeTrain() {
@@ -68,7 +85,8 @@
 			for(let i = 0; i < people.length; i++){
 			console.log(people[i])
 			let cart=document.createElement("div")
-			cart.textContent = people[i]
+			cart.textContent = people[i].name
+			cart.style.backgroundColor = people[i].fav_color
 			cart.classList.add("cart")
 			train.appendChild(cart)
 		}
@@ -82,18 +100,23 @@
 		let addPersonBtn = document.getElementById("add-person")
 		addPersonBtn.addEventListener("click", function(){
 			let personInput = document.getElementById("person")
+			let colorPicker = document.getElementById("colorPicker")
 			console.log(personInput.value)
-			people.push(personInput.value)
+			
+			
+			console.log(people)
+			people.push({
+				name: personInput.value,
+				fav_color: colorPicker.value
+			})
 			makeTrain()
 			personInput.value = ""
-			console.log(people)
-
 		})
 		let removePersonBtn = document.getElementById("remove-person")
 		removePersonBtn.addEventListener("click", function(){
 			let personInput = document.getElementById("person")
 			console.log(personInput.value)
-			people.pop(personInput.value)
+			people.pop()
 			makeTrain()
 			console.log(people)
 		})
