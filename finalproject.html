@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Final Project - Cute Quokka</title>
+    
+<style>
+body {
+    background-color: #f4fbf4;
+    font-family: sans-serif;
+    margin: 20px;
+    overflow: hidden; /* Prevents scrollbars */
+}
+
+#score-board {
+    font-size: 20px;
+    font-weight: bold;
+    margin-bottom: 10px;
+    position: relative;
+    z-index: 10; /* Keeps score above bushes */
+}
+
+/* --- THE QUOKKA FACE CONTAINER --- */
+#quokka {
+    background-color: #a07855; /* Quokka brown */
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    position: absolute;
+    z-index: 5; /* Keeps quokka above bushes */
+}
+
+/* --- ROUND EARS --- */
+.ear {
+    background-color: #a07855; /* Match quokka brown */
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    position: absolute;
+    top: -6px; /* Pulls them slightly above the head */
+}
+.ear.left { left: 2px; }
+.ear.right { right: 2px; }
+
+/* Base styles for both eyes */
+.eye {
+    background-color: #222; /* Black eyes */
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    position: absolute;
+    top: 15px;
+}
+.eye.left { left: 13px; }
+.eye.right { right: 13px; }
+
+/* The mouth/muzzle container */
+#mouth {
+    width: 14px;
+    height: 8px;
+    border: 2px solid #222;
+    border-top: none; /* Removes top border to make a 'U' shape smile */
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    position: absolute;
+    top: 24px;
+    left: 16px;
+}
+
+/* --- THE LEAF TARGET --- */
+#target {
+    background-color: #4CAF50; /* Leaf green */
+    width: 30px;
+    height: 30px;
+    border-top-right-radius: 15px;
+    border-bottom-left-radius: 15px;
+    position: absolute;
+    z-index: 4;
+}
+
+/* --- ENVIRONMENT BUSHES --- */
+.bush {
+    background-color: #2e7d32; /* Forest green */
+    border-radius: 50%;
+    position: absolute;
+    opacity: 0.85;
+    z-index: 1; /* Puts them in the background */
+}
+</style>
+</head>
+<body>
+
+<div id="score-board">Score: <span id="score">0</span></div>
+
+<div id="quokka">
+    <div class="ear left"></div>
+    <div class="ear right"></div>
+    <div class="eye left"></div>
+    <div class="eye right"></div>
+    <div id="mouth"></div>
+</div>
+
+<div id="target"></div>
+
+<script type="text/javascript">
+const quokka = document.getElementById("quokka");
+const target = document.getElementById("target");
+const scoreElement = document.getElementById("score");
+
+let quokkaX = 50;
+let quokkaY = 80;
+let targetX = Math.random() * (window.innerWidth - 100) + 50;
+let targetY = Math.random() * (window.innerHeight - 150) + 100;
+
+const speed = 7; 
+
+quokka.style.left = quokkaX + "px";
+quokka.style.top = quokkaY + "px";
+target.style.left = targetX + "px";
+target.style.top = targetY + "px";
+
+// --- SPAWN BUSHES AROUND THE BORDER ---
+function createBushes() {
+    const numBushes = 30; // Total number of border decorations
+    for (let i = 0; i < numBushes; i++) {
+        const bush = document.createElement('div');
+        bush.classList.add('bush');
+        
+        // Randomize bush sizes slightly for variety
+        const size = Math.random() * 30 + 30; // 30px to 60px
+        bush.style.width = size + "px";
+        bush.style.height = size + "px";
+
+        // Distribute them evenly along the four outer edges
+        if (i % 4 === 0) { // Top edge
+            bush.style.top = Math.random() * 20 - 10 + "px";
+            bush.style.left = Math.random() * window.innerWidth + "px";
+        } else if (i % 4 === 1) { // Bottom edge
+            bush.style.bottom = Math.random() * 20 - 10 + "px";
+            bush.style.left = Math.random() * window.innerWidth + "px";
+        } else if (i % 4 === 2) { // Left edge
+            bush.style.left = Math.random() * 20 - 10 + "px";
+            bush.style.top = Math.random() * window.innerHeight + "px";
+        } else { // Right edge
+            bush.style.right = Math.random() * 20 - 10 + "px";
+            bush.style.top = Math.random() * window.innerHeight + "px";
+        }
+        document.body.appendChild(bush);
+    }
+}
+createBushes();
+
+// --- KEYBOARD CONTROLS ---
+const keysPressed = {
+    ArrowUp: false,
+    ArrowDown: false,
+    ArrowLeft: false,
+    ArrowRight: false
+};
+
+document.addEventListener('keydown', (event) => {
+    if (event.key in keysPressed) {
+        keysPressed[event.key] = true;
+    }
+});
+
+document.addEventListener('keyup', (event) => {
+    if (event.key in keysPressed) {
+        keysPressed[event.key] = false;
+    }
+});
+
+function isColliding(div1, div2) {
+    const rect1 = div1.getBoundingClientRect();
+    const rect2 = div2.getBoundingClientRect();
+
+    return !(
+        rect1.right < rect2.left ||  
+        rect1.left > rect2.right ||  
+        rect1.bottom < rect2.top ||  
+        rect1.top > rect2.bottom     
+    );
+}
+
+// --- SMOOTH GAME LOOP ---
+function updateGame() {
+    if (keysPressed.ArrowUp)    quokkaY -= speed;
+    if (keysPressed.ArrowDown)  quokkaY += speed;
+    if (keysPressed.ArrowLeft)  quokkaX -= speed;
+    if (keysPressed.ArrowRight) quokkaX += speed;
+
+    // Boundary rules so quokka doesn't hide under the border bushes entirely
+    if (quokkaX < 15) quokkaX = 15;
+    if (quokkaY < 50) quokkaY = 50; 
+    if (quokkaX > window.innerWidth - 65) quokkaX = window.innerWidth - 65;
+    if (quokkaY > window.innerHeight - 65) quokkaY = window.innerHeight - 65;
+
+    quokka.style.left = quokkaX + "px";
+    quokka.style.top = quokkaY + "px";
+
+    if (isColliding(quokka, target)) {
+        // Teleport target leaves safely within the middle game zone
+        targetX = Math.random() * (window.innerWidth - 140) + 70;
+        targetY = Math.random() * (window.innerHeight - 180) + 90;
+        target.style.left = targetX + "px";
+        target.style.top = targetY + "px";
+
+        let score = Number(scoreElement.innerText);
+        score++;
+        scoreElement.innerText = score;
+    }
+
+    requestAnimationFrame(updateGame);
+}
+
+requestAnimationFrame(updateGame);
+</script>
+
+</body>
+</html>
